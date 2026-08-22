@@ -60,6 +60,13 @@ function ChatContent() {
 
         <div className="flex items-center gap-3">
           <Link
+            href="/products"
+            className="atelier-btn atelier-btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5"
+          >
+            <span className="hidden sm:inline">Products</span>
+          </Link>
+
+          <Link
             href="/dashboard/documents"
             className="atelier-btn atelier-btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5"
           >

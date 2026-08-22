@@ -51,7 +51,7 @@
 | 1 | User nhập email + password | — |
 | 2 | Submit | `POST /auth/token` |
 | 3 | Lưu `access_token` vào localStorage / cookie | — |
-| 4 | Redirect theo role: `User` → `/`, `Staff` → `/staff`, `Admin` → `/admin` | — |
+| 4 | Redirect theo role: `User` → `/`, `Admin` → `/admin` | — |
 
 ```json
 // POST /auth/token → Response

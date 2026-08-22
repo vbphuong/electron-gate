@@ -14,7 +14,7 @@ interface AuthContextType {
   user: UserInfo | null;
   token: string | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<UserInfo>;
   logout: () => void;
 }
 
@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string): Promise<UserInfo> => {
     const data = await apiLogin(email, password);
     const accessToken = data.access_token;
     localStorage.setItem(TOKEN_KEY, accessToken);
@@ -63,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const userInfo = await apiGetMe(accessToken);
     setUser(userInfo);
+    return userInfo;
   }, []);
 
   return (

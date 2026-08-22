@@ -279,6 +279,13 @@ function DocumentsContent() {
 
         <div className="flex items-center gap-3">
           <Link
+            href="/products"
+            className="atelier-btn atelier-btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5"
+          >
+            <span className="hidden sm:inline">Products</span>
+          </Link>
+
+          <Link
             href="/dashboard/chat"
             className="atelier-btn atelier-btn-secondary !py-1.5 !px-3 text-xs flex items-center gap-1.5 border-[var(--color-atelier-brass)]/40 text-[var(--color-atelier-brass)]"
           >

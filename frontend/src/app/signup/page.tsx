@@ -14,12 +14,12 @@ export default function SignUpPage() {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { login, user, isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (!isLoading && user) {
-      router.replace("/dashboard");
+      router.replace("/");
     }
   }, [user, isLoading, router]);
 
@@ -53,8 +53,7 @@ export default function SignUpPage() {
         throw new Error(data?.detail || "Account creation failed");
       }
 
-      await login(email, password);
-      router.push("/dashboard");
+      router.push("/login");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Account creation failed");
     } finally {

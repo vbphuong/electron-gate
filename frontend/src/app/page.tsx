@@ -123,6 +123,7 @@ export default function Home() {
           </Link>
 
           <nav className="atelier-nav-links">
+            <Link href="/products" className="atelier-nav-link">Products</Link>
             <a href="#workbench" className="atelier-nav-link">Interactive Demo</a>
             <a href="#features" className="atelier-nav-link">Features</a>
             <a href="#endpoints" className="atelier-nav-link">API Endpoints</a>
@@ -405,6 +406,7 @@ export default function Home() {
           </div>
 
           <div className="atelier-footer-links">
+            <Link href="/products">Products</Link>
             <Link href="/login">Sign In</Link>
             <Link href="/signup">Sign Up</Link>
             <Link href="/dashboard">Dashboard</Link>

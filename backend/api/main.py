@@ -28,6 +28,8 @@ from api.routers import (
 )
 from api.database import Base, engine, SessionLocal
 from api.models import Role
+from fastapi.staticfiles import StaticFiles
+import pathlib
 
 app = FastAPI()
 
@@ -38,6 +40,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Ensure local storage folder exists and mount static assets
+storage_dir = pathlib.Path("storage")
+storage_dir.mkdir(exist_ok=True)
+app.mount("/storage", StaticFiles(directory="storage"), name="storage")
 
 Base.metadata.create_all(bind=engine)
 

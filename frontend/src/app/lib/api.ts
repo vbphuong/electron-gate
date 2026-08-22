@@ -169,6 +169,7 @@ export async function apiDeleteDocument(
 export interface SourceChunk {
   content: string;
   score?: number | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata?: Record<string, any>;
 }
 
@@ -238,5 +239,591 @@ export async function apiRAGSearch(
     throw new Error(errorData?.detail || `RAG search failed with status ${res.status}`);
   }
 
+  return res.json();
+}
+
+// ── E-Commerce & Product Browsing ─────────────────────────────────────────────
+
+export interface CategoryBrief {
+  category_id: string;
+  name: string;
+}
+
+export interface Category {
+  category_id: string;
+  name: string;
+  description?: string | null;
+  created_at?: string | null;
+}
+
+export interface ProductListItem {
+  product_id: string;
+  name: string;
+  description?: string | null;
+  image_url?: string | null;
+  categories: CategoryBrief[];
+  variant_count: number;
+}
+
+export interface VariantBrief {
+  variant_id: string;
+  model?: string | null;
+  color?: string | null;
+  storage?: string | null;
+  price: number | string;
+  status: string;
+  image_url?: string | null;
+}
+
+export interface SpecBrief {
+  spec_product_id: string;
+  spec_name: string;
+  spec_value: string;
+}
+
+export interface ProductRead {
+  product_id: string;
+  name: string;
+  description?: string | null;
+  image_url?: string | null;
+  categories: CategoryBrief[];
+  variants: VariantBrief[];
+  specs: SpecBrief[];
+}
+
+export interface VisualSearchResultItem {
+  product_id: string;
+  product_name: string;
+  product_description?: string | null;
+  matched_image_id: string;
+  matched_image_url: string;
+  variant_id?: string | null;
+  variant_model?: string | null;
+  variant_color?: string | null;
+  variant_price?: number | null;
+  similarity_score: number;
+}
+
+export interface ProductImageRead {
+  image_id: string;
+  product_id: string;
+  variant_id?: string | null;
+  image_url: string;
+  is_primary: boolean;
+  created_at?: string | null;
+}
+
+export interface CartItemBrief {
+  variant_id: string;
+  quantity: number;
+  unit_price: number | string;
+  is_selected: boolean;
+  product_name?: string | null;
+  variant_model?: string | null;
+  variant_color?: string | null;
+  variant_storage?: string | null;
+  variant_image_url?: string | null;
+}
+
+export interface CartRead {
+  cart_id: string;
+  user_id: string;
+  status: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+  items: CartItemBrief[];
+}
+
+export async function apiGetProducts(
+  token?: string | null,
+  categoryId?: string | null,
+  search?: string | null
+): Promise<ProductListItem[]> {
+  const url = new URL(`${BACKEND_URL}/products`);
+  if (categoryId) url.searchParams.append("category_id", categoryId);
+  if (search) url.searchParams.append("search", search);
+
+  const headers: HeadersInit = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(url.toString(), { headers });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to fetch products: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiGetCategories(token?: string | null): Promise<Category[]> {
+  const headers: HeadersInit = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${BACKEND_URL}/categories`, { headers });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to fetch categories: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiGetProductById(
+  productId: string,
+  token?: string | null
+): Promise<ProductRead> {
+  const headers: HeadersInit = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${BACKEND_URL}/products/${productId}`, { headers });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to fetch product: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiSearchProductsByImage(
+  embedding: number[],
+  token?: string | null,
+  options?: { top_k?: number; min_similarity?: number; category_id?: string }
+): Promise<VisualSearchResultItem[]> {
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${BACKEND_URL}/products/search-by-image`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      embedding,
+      top_k: options?.top_k ?? 10,
+      min_similarity: options?.min_similarity ?? 0.5,
+      category_id: options?.category_id ?? null,
+    }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Visual search failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiGetMyCart(token: string): Promise<CartRead> {
+  const res = await fetch(`${BACKEND_URL}/carts/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to fetch cart: ${res.status}`);
+  }
+  return res.json();
+}
+
+export interface ProductCreatePayload {
+  name: string;
+  description?: string | null;
+  image_url?: string | null;
+  category_ids?: string[];
+}
+
+export async function apiCreateProduct(
+  payload: ProductCreatePayload,
+  token: string
+): Promise<ProductRead> {
+  const res = await fetch(`${BACKEND_URL}/products`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to create product: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export interface ImageUploadResponse {
+  image_url: string;
+  file_name: string;
+}
+
+export async function apiUploadProductImage(
+  file: File,
+  token: string
+): Promise<ImageUploadResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await fetch(`${BACKEND_URL}/products/upload-image`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to upload image: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function apiGetProductImages(
+  productId: string,
+  token?: string | null
+): Promise<ProductImageRead[]> {
+  const headers: HeadersInit = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${BACKEND_URL}/products/${productId}/images`, { headers });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to fetch product images: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiAddToCart(
+  cartId: string,
+  variantId: string,
+  quantity: number = 1,
+  token: string
+): Promise<CartItemBrief> {
+  const res = await fetch(`${BACKEND_URL}/carts/${cartId}/items`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      variant_id: variantId,
+      quantity,
+    }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to add item to cart: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export interface CartItemUpdatePayload {
+  quantity?: number;
+  is_selected?: boolean;
+}
+
+export async function apiUpdateCartItem(
+  cartId: string,
+  variantId: string,
+  payload: CartItemUpdatePayload,
+  token: string
+): Promise<CartItemBrief> {
+  const res = await fetch(`${BACKEND_URL}/carts/${cartId}/items/${variantId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to update cart item: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function apiDeleteCartItem(
+  cartId: string,
+  variantId: string,
+  token: string
+): Promise<void> {
+  const res = await fetch(`${BACKEND_URL}/carts/${cartId}/items/${variantId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok && res.status !== 204) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to remove cart item: ${res.status}`);
+  }
+}
+
+export interface VariantCreatePayload {
+  model?: string | null;
+  color?: string | null;
+  storage?: string | null;
+  price: number;
+  status?: string;
+  image_url?: string | null;
+}
+
+export async function apiCreateVariant(
+  productId: string,
+  payload: VariantCreatePayload,
+  token: string
+): Promise<VariantBrief> {
+  const res = await fetch(`${BACKEND_URL}/products/${productId}/variants`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to create variant: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export interface VariantUpdatePayload {
+  model?: string | null;
+  color?: string | null;
+  storage?: string | null;
+  price?: number | null;
+  status?: string | null;
+  image_url?: string | null;
+}
+
+export async function apiUpdateVariant(
+  productId: string,
+  variantId: string,
+  payload: VariantUpdatePayload,
+  token: string
+): Promise<VariantBrief> {
+  const res = await fetch(
+    `${BACKEND_URL}/products/${productId}/variants/${variantId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to update variant: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function apiDeleteVariant(
+  productId: string,
+  variantId: string,
+  token: string
+): Promise<void> {
+  const res = await fetch(
+    `${BACKEND_URL}/products/${productId}/variants/${variantId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!res.ok && res.status !== 204) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to delete variant: ${res.status}`);
+  }
+}
+
+// ── Checkout & Address Types ──────────────────────────────────────────────────
+
+export interface AddressRead {
+  address_id: string;
+  user_id: string;
+  address_line: string;
+  city_id: string;
+  is_default: boolean;
+  city_name?: string | null;
+  postal_code?: string | null;
+  country_name?: string | null;
+}
+
+export interface AddressCreatePayload {
+  address_line: string;
+  city_id: string;
+  is_default?: boolean;
+}
+
+export interface CountryRead {
+  country_id: string;
+  country_name: string;
+}
+
+export interface CityRead {
+  city_id: string;
+  city_name: string;
+  postal_code?: string | null;
+  country_id: string;
+  country_name?: string | null;
+}
+
+export interface OrderItemBrief {
+  order_item_id: string;
+  variant_id: string;
+  quantity: number;
+  unit_price: number;
+  product_name?: string | null;
+  variant_model?: string | null;
+  variant_color?: string | null;
+  variant_storage?: string | null;
+}
+
+export interface OrderHistoryBrief {
+  or_his_id: string;
+  address_line: string;
+  recipient_name: string;
+  country_name: string;
+  city_name: string;
+  phone: string;
+}
+
+export interface OrderRead {
+  order_id: string;
+  user_id: string;
+  shipping_address_id: string;
+  order_number: string;
+  order_status: string;
+  subtotal: number;
+  shipping_fee: number;
+  discount_amount: number;
+  created_at?: string | null;
+  items: OrderItemBrief[];
+  histories: OrderHistoryBrief[];
+}
+
+export interface PaymentRead {
+  payment_id: string;
+  order_id: string;
+  amount: number;
+  payment_method: string;
+  payment_status: string;
+  created_at?: string | null;
+}
+
+// ── Checkout & Address APIs ───────────────────────────────────────────────────
+
+export async function apiGetMyAddresses(token: string): Promise<AddressRead[]> {
+  const res = await fetch(`${BACKEND_URL}/addresses/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to fetch addresses: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiCreateAddress(
+  payload: AddressCreatePayload,
+  token: string
+): Promise<AddressRead> {
+  const res = await fetch(`${BACKEND_URL}/addresses`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to create address: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiGetCountries(token: string): Promise<CountryRead[]> {
+  const res = await fetch(`${BACKEND_URL}/countries`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to fetch countries: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiGetCities(
+  countryId: string,
+  token: string
+): Promise<CityRead[]> {
+  const res = await fetch(`${BACKEND_URL}/countries/${countryId}/cities`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to fetch cities: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiCheckout(
+  shippingAddressId: string,
+  token: string
+): Promise<OrderRead> {
+  const res = await fetch(`${BACKEND_URL}/orders/checkout`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ shipping_address_id: shippingAddressId }),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Checkout failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiGetOrderById(
+  orderId: string,
+  token: string
+): Promise<OrderRead> {
+  const res = await fetch(`${BACKEND_URL}/orders/${orderId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to fetch order: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiGetOrderPayment(
+  orderId: string,
+  token: string
+): Promise<PaymentRead | null> {
+  const res = await fetch(`${BACKEND_URL}/orders/${orderId}/payment`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    if (res.status === 404) return null;
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to fetch payment: ${res.status}`);
+  }
   return res.json();
 }
