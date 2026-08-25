@@ -85,6 +85,24 @@ def list_payments(
     """Staff/Admin only. Filter by order_id or status."""
     _require_staff_or_admin(current_user)
 
+    # Auto-provision payments for any existing orders missing a payment record
+    orders_without_payment = (
+        db.query(Order)
+        .outerjoin(Payment, Order.order_id == Payment.order_id)
+        .filter(Payment.payment_id == None)
+        .all()
+    )
+    if orders_without_payment:
+        for ord in orders_without_payment:
+            p = Payment(
+                order_id=ord.order_id,
+                payment_method="credit_card",
+                payment_status="pending",
+                amount=ord.subtotal + ord.shipping_fee - ord.discount_amount,
+            )
+            db.add(p)
+        db.commit()
+
     query = db.query(Payment)
     if order_id is not None:
         query = query.filter(Payment.order_id == order_id)
@@ -194,7 +212,13 @@ def get_payment_by_order(
 
     payment = db.query(Payment).filter(Payment.order_id == order_id).first()
     if not payment:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="No payment found for this order"
+        payment = Payment(
+            order_id=order_id,
+            payment_method="credit_card",
+            payment_status="pending",
+            amount=order.subtotal + order.shipping_fee - order.discount_amount,
         )
+        db.add(payment)
+        db.commit()
+        db.refresh(payment)
     return PaymentRead.model_validate(payment)

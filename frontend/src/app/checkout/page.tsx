@@ -50,6 +50,7 @@ export default function CheckoutPage() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState<boolean>(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<string>("credit_card");
 
   // New Address Modal states
   const [isNewAddressModalOpen, setIsNewAddressModalOpen] = useState<boolean>(false);
@@ -235,7 +236,7 @@ export default function CheckoutPage() {
     setCheckoutError(null);
 
     try {
-      const order = await apiCheckout(selectedAddressId, token);
+      const order = await apiCheckout(selectedAddressId, token, paymentMethod);
       // Redirect to Order Confirmation screen (Section 4.2)
       router.push(`/orders/${order.order_id}/confirm`);
     } catch (err) {
@@ -543,6 +544,56 @@ export default function CheckoutPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </section>
+
+              {/* STEP 3: Settlement & Payment Method */}
+              <section className="atelier-plate p-6 rounded-lg border border-[var(--color-rule)] bg-[var(--color-paper-card)] shadow-sm space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-[var(--color-rule)]">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 rounded bg-[var(--color-paper-terminal)] border border-[var(--color-rule)] text-[var(--color-atelier-brass)]">
+                      <CreditCard className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h2 className="font-fraunces font-bold text-lg text-[var(--color-ink)]">
+                        3. Settlement Method
+                      </h2>
+                      <p className="font-mono text-[10px] text-[var(--color-ink-muted)]">
+                        Select transaction authorization protocol
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono text-xs">
+                  {[
+                    { id: "credit_card", label: "Credit Card", desc: "Instant gateway authorization" },
+                    { id: "wire_transfer", label: "Wire Transfer", desc: "Corporate invoice & IBAN" },
+                    { id: "crypto", label: "Crypto Enclave", desc: "USDC / ETH / BTC token" },
+                  ].map((m) => {
+                    const isSelected = paymentMethod === m.id;
+                    return (
+                      <div
+                        key={m.id}
+                        onClick={() => setPaymentMethod(m.id)}
+                        className={`p-3.5 rounded-lg border cursor-pointer transition-all ${
+                          isSelected
+                            ? "border-[var(--color-atelier-brass)] bg-[var(--color-paper-sub)] shadow-sm"
+                            : "border-[var(--color-rule)] bg-[var(--color-paper-terminal)] hover:border-[var(--color-rule-active)]"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-[var(--color-ink)]">{m.label}</span>
+                          {isSelected && (
+                            <div className="w-3.5 h-3.5 rounded-full bg-[var(--color-atelier-brass)] text-[var(--color-paper)] flex items-center justify-center">
+                              <Check className="w-2.5 h-2.5" />
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-[var(--color-ink-muted)] mt-1">{m.desc}</p>
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
             </div>
