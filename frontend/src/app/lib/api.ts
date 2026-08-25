@@ -5,15 +5,22 @@ const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:80
 async function fetchJson<T>(
   path: string,
   init?: RequestInit,
-  fallbackErrMsg: string = "Request failed"
+  fallbackErrMsg: string = "Request failed",
+  options?: { allow404AsNull?: boolean }
 ): Promise<T> {
   const url = path.startsWith("http") ? path : `${BACKEND_URL}${path}`;
   const res = await fetch(url, init);
   if (!res.ok) {
+    if (options?.allow404AsNull && res.status === 404) {
+      return null as unknown as T;
+    }
     const errorData = await res.json().catch(() => null);
     throw new Error(errorData?.detail || `${fallbackErrMsg}: ${res.status}`);
   }
-  return res.json();
+  if (res.status === 204 || res.headers.get("content-length") === "0") {
+    return undefined as unknown as T;
+  }
+  return res.json().catch(() => undefined as unknown as T);
 }
 
 // ── Authentication & Identity ────────────────────────────────────────────────
@@ -157,14 +164,14 @@ export async function apiDeleteDocument(
   documentId: string,
   token: string
 ): Promise<void> {
-  const res = await fetch(`${BACKEND_URL}/ingestion/documents/${documentId}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok && res.status !== 204) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to delete document: ${res.status}`);
-  }
+  return fetchJson<void>(
+    `/ingestion/documents/${documentId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to delete document"
+  );
 }
 
 export interface SourceChunk {
@@ -305,6 +312,7 @@ export interface ProductImageRead {
   variant_id?: string | null;
   image_url: string;
   is_primary: boolean;
+  has_embedding?: boolean;
   created_at?: string | null;
 }
 
@@ -350,6 +358,66 @@ export async function apiGetCategories(token?: string | null): Promise<Category[
 
   return fetchJson<Category[]>("/categories", { headers }, "Failed to fetch categories");
 }
+
+export interface CategoryCreatePayload {
+  name: string;
+}
+
+export interface CategoryUpdatePayload {
+  name?: string;
+}
+
+export async function apiCreateCategory(
+  payload: CategoryCreatePayload,
+  token: string
+): Promise<Category> {
+  return fetchJson<Category>(
+    "/categories",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    },
+    "Failed to create category"
+  );
+}
+
+export async function apiUpdateCategory(
+  categoryId: string,
+  payload: CategoryUpdatePayload,
+  token: string
+): Promise<Category> {
+  return fetchJson<Category>(
+    `/categories/${categoryId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    },
+    "Failed to update category"
+  );
+}
+
+export async function apiDeleteCategory(
+  categoryId: string,
+  token: string
+): Promise<void> {
+  return fetchJson<void>(
+    `/categories/${categoryId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to delete category"
+  );
+}
+
 
 export async function apiGetProductById(
   productId: string,
@@ -505,14 +573,14 @@ export async function apiDeleteCartItem(
   variantId: string,
   token: string
 ): Promise<void> {
-  const res = await fetch(`${BACKEND_URL}/carts/${cartId}/items/${variantId}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok && res.status !== 204) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to remove cart item: ${res.status}`);
-  }
+  return fetchJson<void>(
+    `/carts/${cartId}/items/${variantId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to remove cart item"
+  );
 }
 
 export interface VariantCreatePayload {
@@ -577,18 +645,223 @@ export async function apiDeleteVariant(
   variantId: string,
   token: string
 ): Promise<void> {
-  const res = await fetch(
-    `${BACKEND_URL}/products/${productId}/variants/${variantId}`,
+  return fetchJson<void>(
+    `/products/${productId}/variants/${variantId}`,
     {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
-    }
+    },
+    "Failed to delete variant"
   );
-  if (!res.ok && res.status !== 204) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to delete variant: ${res.status}`);
-  }
 }
+
+export interface ProductUpdatePayload {
+  name?: string;
+  description?: string | null;
+  image_url?: string | null;
+  category_ids?: string[];
+}
+
+export async function apiUpdateProduct(
+  productId: string,
+  payload: ProductUpdatePayload,
+  token: string
+): Promise<ProductRead> {
+  return fetchJson<ProductRead>(
+    `/products/${productId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    },
+    "Failed to update product"
+  );
+}
+
+export async function apiDeleteProduct(
+  productId: string,
+  token: string
+): Promise<void> {
+  return fetchJson<void>(
+    `/products/${productId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to delete product"
+  );
+}
+
+export async function apiGetProductVariants(
+  productId: string,
+  token?: string | null
+): Promise<VariantBrief[]> {
+  const headers: HeadersInit = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  return fetchJson<VariantBrief[]>(
+    `/products/${productId}/variants`,
+    { headers },
+    "Failed to fetch variants"
+  );
+}
+
+export interface ProductSpecRead {
+  spec_product_id: string;
+  product_id: string;
+  spec_name: string;
+  spec_value: string;
+}
+
+export interface ProductSpecCreatePayload {
+  spec_name: string;
+  spec_value: string;
+}
+
+export interface ProductSpecUpdatePayload {
+  spec_name?: string;
+  spec_value?: string;
+}
+
+export async function apiGetProductSpecs(
+  productId: string,
+  token?: string | null
+): Promise<ProductSpecRead[]> {
+  const headers: HeadersInit = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  return fetchJson<ProductSpecRead[]>(
+    `/products/${productId}/specs`,
+    { headers },
+    "Failed to fetch product specs"
+  );
+}
+
+export async function apiCreateProductSpec(
+  productId: string,
+  payload: ProductSpecCreatePayload,
+  token: string
+): Promise<ProductSpecRead> {
+  return fetchJson<ProductSpecRead>(
+    `/products/${productId}/specs`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    },
+    "Failed to create spec"
+  );
+}
+
+export async function apiUpdateProductSpec(
+  productId: string,
+  specId: string,
+  payload: ProductSpecUpdatePayload,
+  token: string
+): Promise<ProductSpecRead> {
+  return fetchJson<ProductSpecRead>(
+    `/products/${productId}/specs/${specId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    },
+    "Failed to update spec"
+  );
+}
+
+export async function apiDeleteProductSpec(
+  productId: string,
+  specId: string,
+  token: string
+): Promise<void> {
+  return fetchJson<void>(
+    `/products/${productId}/specs/${specId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to delete spec"
+  );
+}
+
+export interface ProductImageCreatePayload {
+  variant_id?: string | null;
+  image_url: string;
+  is_primary?: boolean;
+  embedding?: number[] | null;
+}
+
+export interface ProductImageUpdatePayload {
+  variant_id?: string | null;
+  image_url?: string | null;
+  is_primary?: boolean | null;
+  embedding?: number[] | null;
+}
+
+export async function apiCreateProductImage(
+  productId: string,
+  payload: ProductImageCreatePayload,
+  token: string
+): Promise<ProductImageRead> {
+  return fetchJson<ProductImageRead>(
+    `/products/${productId}/images`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    },
+    "Failed to create product image"
+  );
+}
+
+export async function apiUpdateProductImage(
+  productId: string,
+  imageId: string,
+  payload: ProductImageUpdatePayload,
+  token: string
+): Promise<ProductImageRead> {
+  return fetchJson<ProductImageRead>(
+    `/products/${productId}/images/${imageId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    },
+    "Failed to update product image"
+  );
+}
+
+export async function apiDeleteProductImage(
+  productId: string,
+  imageId: string,
+  token: string
+): Promise<void> {
+  return fetchJson<void>(
+    `/products/${productId}/images/${imageId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to delete product image"
+  );
+}
+
 
 // ── Checkout & Address Types ──────────────────────────────────────────────────
 
@@ -724,14 +997,14 @@ export async function apiDeleteAddress(
   addressId: string,
   token: string
 ): Promise<void> {
-  const res = await fetch(`${BACKEND_URL}/addresses/${addressId}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok && res.status !== 204) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to delete address: ${res.status}`);
-  }
+  return fetchJson<void>(
+    `/addresses/${addressId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to delete address"
+  );
 }
 
 export async function apiGetCountries(token: string): Promise<CountryRead[]> {
@@ -872,30 +1145,24 @@ export async function apiGetOrderShipment(
   orderId: string,
   token: string
 ): Promise<ShipmentRead | null> {
-  const res = await fetch(`${BACKEND_URL}/orders/${orderId}/shipment`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    if (res.status === 404) return null;
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to fetch shipment: ${res.status}`);
-  }
-  return res.json();
+  return fetchJson<ShipmentRead | null>(
+    `/orders/${orderId}/shipment`,
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch shipment",
+    { allow404AsNull: true }
+  );
 }
 
 export async function apiGetOrderPayment(
   orderId: string,
   token: string
 ): Promise<PaymentRead | null> {
-  const res = await fetch(`${BACKEND_URL}/orders/${orderId}/payment`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    if (res.status === 404) return null;
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to fetch payment: ${res.status}`);
-  }
-  return res.json();
+  return fetchJson<PaymentRead | null>(
+    `/orders/${orderId}/payment`,
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch payment",
+    { allow404AsNull: true }
+  );
 }
 
 // ── Admin & Staff Operations APIs ──────────────────────────────────────────
@@ -1109,3 +1376,156 @@ export async function apiGetDeliveryProviders(
     "Failed to fetch delivery providers"
   );
 }
+
+// ── People & Role Management APIs ──────────────────────────────────────────
+
+export interface RoleRead {
+  role_id: string;
+  role_name: string;
+}
+
+export interface RoleCreatePayload {
+  role_name: string;
+}
+
+export interface UserRead {
+  user_id: string;
+  email: string;
+  role_id: string;
+  role_name: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface UserCreatePayload {
+  email: string;
+  password: string;
+  role_id?: string;
+  role_name?: string;
+}
+
+export interface UserUpdatePayload {
+  email?: string;
+  password?: string;
+  role_id?: string;
+  role_name?: string;
+}
+
+export async function apiListRoles(token: string): Promise<RoleRead[]> {
+  return fetchJson<RoleRead[]>(
+    "/people/roles",
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch roles"
+  );
+}
+
+export async function apiCreateRole(
+  payload: RoleCreatePayload,
+  token: string
+): Promise<RoleRead> {
+  return fetchJson<RoleRead>(
+    "/people/roles",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    },
+    "Failed to create role"
+  );
+}
+
+export async function apiUpdateRole(
+  roleId: string,
+  payload: RoleCreatePayload,
+  token: string
+): Promise<RoleRead> {
+  return fetchJson<RoleRead>(
+    `/people/roles/${roleId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    },
+    "Failed to update role"
+  );
+}
+
+export async function apiDeleteRole(
+  roleId: string,
+  token: string
+): Promise<void> {
+  return fetchJson<void>(
+    `/people/roles/${roleId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to delete role"
+  );
+}
+
+export async function apiListUsers(token: string): Promise<UserRead[]> {
+  return fetchJson<UserRead[]>(
+    "/people/users",
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch users"
+  );
+}
+
+export async function apiCreateUser(
+  payload: UserCreatePayload,
+  token: string
+): Promise<UserRead> {
+  return fetchJson<UserRead>(
+    "/people/users",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    },
+    "Failed to create user"
+  );
+}
+
+export async function apiUpdateUser(
+  userId: string,
+  payload: UserUpdatePayload,
+  token: string
+): Promise<UserRead> {
+  return fetchJson<UserRead>(
+    `/people/users/${userId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    },
+    "Failed to update user"
+  );
+}
+
+export async function apiDeleteUser(
+  userId: string,
+  token: string
+): Promise<void> {
+  return fetchJson<void>(
+    `/people/users/${userId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to delete user"
+  );
+}
+

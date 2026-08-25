@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, Geist, JetBrains_Mono } from "next/font/google";
 import { AuthProvider } from "@/app/context/AuthContext";
+import { Navbar } from "@/components/layout/Navbar";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -39,7 +40,10 @@ export default function RootLayout({
       className={`${fraunces.variable} ${geistSans.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-[var(--color-paper)] text-[var(--color-ink)]">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <Navbar />
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

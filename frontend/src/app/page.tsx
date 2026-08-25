@@ -100,53 +100,7 @@ export default function Home() {
       <div className="atelier-filament-glow" />
 
       {/* Navigation · Atelier Apparatus */}
-      <header className="atelier-nav">
-        <div className="atelier-nav-inner">
-          <Link href="/" className="atelier-logo">
-            <div className="atelier-logo-stamp">
-              <svg width="18" height="18" viewBox="0 0 40 40" fill="none">
-                <path
-                  d="M20 4L4 12V28L20 36L36 28V12L20 4Z"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M20 4V36M4 12L36 28M36 12L4 28"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  opacity="0.6"
-                />
-              </svg>
-            </div>
-            <span>Electron Gate</span>
-          </Link>
-
-          <nav className="atelier-nav-links">
-            <Link href="/products" className="atelier-nav-link">Products</Link>
-            <a href="#workbench" className="atelier-nav-link">Interactive Demo</a>
-            <a href="#features" className="atelier-nav-link">Features</a>
-            <a href="#endpoints" className="atelier-nav-link">API Endpoints</a>
-          </nav>
-
-          <div className="flex items-center gap-3">
-            {isLoading ? null : user ? (
-              <Link href="/dashboard" className="atelier-btn atelier-btn-primary">
-                Open Dashboard →
-              </Link>
-            ) : (
-              <>
-                <Link href="/login" className="atelier-btn atelier-btn-secondary">
-                  Sign In
-                </Link>
-                <Link href="/signup" className="atelier-btn atelier-btn-primary">
-                  Get Started
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
+      
 
       {/* Hero Section: Editorial Atelier Manifesto + Terminal RAG Workbench */}
       <section className="atelier-hero">
