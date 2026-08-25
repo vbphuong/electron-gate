@@ -1,0 +1,735 @@
+/* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V5 */
+/* Hallmark · genre: editorial-modern-minimal · theme: atelier-terminal · typography: Fraunces-Geist-JetBrainsMono · design-system: design.md */
+
+"use client";
+
+import { useState, useEffect, useCallback, useMemo } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/app/context/AuthContext";
+import {
+  apiListRoles,
+  apiCreateRole,
+  apiUpdateRole,
+  apiDeleteRole,
+  apiListUsers,
+  type RoleRead,
+  type UserRead,
+} from "@/app/lib/api";
+import {
+  Layers,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  Search,
+  CheckCircle2,
+  Clock,
+  ArrowRight,
+  RefreshCw,
+  LogOut,
+  ChevronRight,
+  AlertCircle,
+  X,
+  Edit3,
+  Trash2,
+  Plus,
+  Users,
+  Lock,
+  Sparkles,
+} from "lucide-react";
+
+export default function AdminRolesPage() {
+  const router = useRouter();
+  const { user: currentUser, token, logout, isLoading: authLoading } = useAuth();
+
+  // Data states
+  const [roles, setRoles] = useState<RoleRead[]>([]);
+  const [users, setUsers] = useState<UserRead[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+  // Create Role Modal states
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
+  const [newRoleName, setNewRoleName] = useState<string>("");
+  const [isSubmittingCreate, setIsSubmittingCreate] = useState<boolean>(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  // Edit Role Modal states
+  const [editingRole, setEditingRole] = useState<RoleRead | null>(null);
+  const [editRoleName, setEditRoleName] = useState<string>("");
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState<boolean>(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  // Delete Role Modal states
+  const [deletingRole, setDeletingRole] = useState<RoleRead | null>(null);
+  const [isSubmittingDelete, setIsSubmittingDelete] = useState<boolean>(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Permission check
+  const isAdmin = currentUser?.role?.toLowerCase() === "admin";
+
+  // Load data
+  const loadData = useCallback(async () => {
+    if (!token) {
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+      const [rolesData, usersData] = await Promise.all([
+        apiListRoles(token),
+        apiListUsers(token),
+      ]);
+      setRoles(rolesData);
+      setUsers(usersData);
+    } catch (err: any) {
+      setError(err?.message || "Failed to load roles registry.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (!authLoading) {
+      if (!currentUser) {
+        router.replace("/login");
+      } else if (!isAdmin) {
+        router.replace("/dashboard");
+      } else {
+        loadData();
+      }
+    }
+  }, [authLoading, currentUser, isAdmin, router, loadData]);
+
+  // Role usage map (count of users per role)
+  const roleUserCountMap = useMemo(() => {
+    const map = new Map<string, number>();
+    users.forEach((u) => {
+      const count = map.get(u.role_id) || 0;
+      map.set(u.role_id, count + 1);
+    });
+    return map;
+  }, [users]);
+
+  // Filtered roles
+  const filteredRoles = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return roles;
+    return roles.filter(
+      (r) =>
+        r.role_name.toLowerCase().includes(query) ||
+        r.role_id.toLowerCase().includes(query)
+    );
+  }, [roles, searchQuery]);
+
+  // Handle Create Role
+  const handleCreateRole = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    if (!newRoleName.trim()) {
+      setCreateError("Role name cannot be blank.");
+      return;
+    }
+
+    setIsSubmittingCreate(true);
+    setCreateError(null);
+    try {
+      await apiCreateRole({ role_name: newRoleName.trim() }, token);
+      setActionSuccess(`Role '${newRoleName.trim()}' successfully defined.`);
+      setTimeout(() => setActionSuccess(null), 5000);
+      setIsCreateModalOpen(false);
+      setNewRoleName("");
+      await loadData();
+    } catch (err: any) {
+      setCreateError(err?.message || "Failed to define new role.");
+    } finally {
+      setIsSubmittingCreate(false);
+    }
+  };
+
+  // Open Edit Modal
+  const openEditModal = (r: RoleRead) => {
+    setEditingRole(r);
+    setEditRoleName(r.role_name);
+    setEditError(null);
+  };
+
+  // Handle Update Role
+  const handleUpdateRole = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !editingRole) return;
+    if (!editRoleName.trim()) {
+      setEditError("Role name cannot be blank.");
+      return;
+    }
+
+    setIsSubmittingEdit(true);
+    setEditError(null);
+    try {
+      await apiUpdateRole(editingRole.role_id, { role_name: editRoleName.trim() }, token);
+      setActionSuccess(`Role renamed to '${editRoleName.trim()}' successfully.`);
+      setTimeout(() => setActionSuccess(null), 5000);
+      setEditingRole(null);
+      await loadData();
+    } catch (err: any) {
+      setEditError(err?.message || "Failed to update role name.");
+    } finally {
+      setIsSubmittingEdit(false);
+    }
+  };
+
+  // Handle Delete Role
+  const handleDeleteRole = async () => {
+    if (!token || !deletingRole) return;
+    const assignedCount = roleUserCountMap.get(deletingRole.role_id) || 0;
+    if (assignedCount > 0) {
+      setDeleteError(`Cannot delete role '${deletingRole.role_name}': ${assignedCount} user(s) currently hold this assignment. Reassign them first.`);
+      return;
+    }
+
+    setIsSubmittingDelete(true);
+    setDeleteError(null);
+    try {
+      await apiDeleteRole(deletingRole.role_id, token);
+      setActionSuccess(`Role '${deletingRole.role_name}' permanently deleted.`);
+      setTimeout(() => setActionSuccess(null), 5000);
+      setDeletingRole(null);
+      await loadData();
+    } catch (err: any) {
+      setDeleteError(err?.message || "Failed to delete role definition.");
+    } finally {
+      setIsSubmittingDelete(false);
+    }
+  };
+
+  // System Protected Roles (Admin, Staff, User)
+  const isSystemCoreRole = (roleName: string) => {
+    const normalized = (roleName || "").toLowerCase();
+    return normalized === "admin" || normalized === "staff" || normalized === "user";
+  };
+
+  if (authLoading || (!currentUser && !error)) {
+    return (
+      <div className="min-h-screen bg-[var(--color-paper)] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-[var(--color-atelier-brass)] border-t-transparent animate-spin" />
+          <p className="font-mono text-xs text-[var(--color-ink-muted)] tracking-widest uppercase">
+            Verifying security enclave scopes...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[var(--color-paper)] text-[var(--color-ink)] flex flex-col selection:bg-[var(--color-atelier-brass)]/20 selection:text-[var(--color-atelier-brass)]">
+      {/* Visual Canvas Backdrop */}
+      <div className="atelier-canvas-grid" />
+      <div className="atelier-filament-glow" />
+
+      {/* Top System Enclave Bar */}
+      <header className="relative z-20 border-b border-[var(--color-rule)] bg-[var(--color-paper-terminal)]/90 backdrop-blur-md sticky top-0 px-4 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard"
+            className="font-fraunces text-xl font-bold tracking-tight text-[var(--color-ink)] hover:text-[var(--color-atelier-brass)] transition-colors flex items-center gap-2"
+          >
+            <span className="w-2.5 h-2.5 bg-[var(--color-atelier-brass)] rounded-full animate-pulse shadow-[0_0_8px_var(--color-atelier-brass)]" />
+            Electron Gate
+          </Link>
+          <span className="text-[var(--color-rule-active)] font-mono text-xs">/</span>
+          <span className="font-mono text-xs uppercase tracking-widest text-[var(--color-atelier-brass)] font-semibold flex items-center gap-1.5">
+            <Layers className="w-3.5 h-3.5" />
+            Role Definitions
+          </span>
+        </div>
+
+        {/* Global Admin Navigation Links */}
+        <nav className="flex items-center gap-1 sm:gap-2 overflow-x-auto py-1 text-xs font-mono">
+          <Link
+            href="/admin/users"
+            className="px-3 py-1.5 rounded bg-[var(--color-paper-sub)] border border-[var(--color-rule)] text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] hover:border-[var(--color-rule-active)] transition-all flex items-center gap-1.5"
+          >
+            <Users className="w-3.5 h-3.5" />
+            Users
+          </Link>
+          <Link
+            href="/admin/roles"
+            className="px-3 py-1.5 rounded bg-[var(--color-paper-card)] border border-[var(--color-atelier-brass)] text-[var(--color-atelier-brass)] font-semibold shadow-sm flex items-center gap-1.5"
+          >
+            <Layers className="w-3.5 h-3.5" />
+            Roles
+          </Link>
+          <Link
+            href="/admin/orders"
+            className="px-3 py-1.5 rounded bg-[var(--color-paper-sub)] border border-[var(--color-rule)] text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] hover:border-[var(--color-rule-active)] transition-all"
+          >
+            Orders
+          </Link>
+          <Link
+            href="/admin/payments"
+            className="px-3 py-1.5 rounded bg-[var(--color-paper-sub)] border border-[var(--color-rule)] text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] hover:border-[var(--color-rule-active)] transition-all"
+          >
+            Payments
+          </Link>
+          <Link
+            href="/admin/shipments"
+            className="px-3 py-1.5 rounded bg-[var(--color-paper-sub)] border border-[var(--color-rule)] text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] hover:border-[var(--color-rule-active)] transition-all"
+          >
+            Shipments
+          </Link>
+          <Link
+            href="/products"
+            className="px-3 py-1.5 rounded bg-[var(--color-paper-sub)] border border-[var(--color-rule)] text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] hover:border-[var(--color-rule-active)] transition-all"
+          >
+            Storefront
+          </Link>
+        </nav>
+
+        {/* User Badge & Actions */}
+        <div className="flex items-center gap-3">
+          <div className="hidden md:flex flex-col text-right font-mono text-xs">
+            <span className="text-[var(--color-ink)] font-semibold">{currentUser?.email}</span>
+            <span className="text-[var(--color-atelier-brass)] uppercase tracking-wider text-[10px]">
+              ADMIN ENCLAVE
+            </span>
+          </div>
+          <button
+            onClick={() => logout()}
+            className="p-2 rounded bg-[var(--color-paper-sub)] border border-[var(--color-rule)] text-[var(--color-ink-muted)] hover:text-[var(--color-restricted-red)] hover:border-[var(--color-restricted-red)]/50 transition-colors"
+            title="Disconnect Terminal Session"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
+      </header>
+
+      {/* Main Content Area */}
+      <main className="relative z-10 flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
+        {/* Banner Alerts */}
+        {actionSuccess && (
+          <div className="p-4 rounded-lg bg-[var(--color-terminal-green)]/10 border border-[var(--color-terminal-green)]/40 flex items-center justify-between text-[var(--color-terminal-green)] font-mono text-xs animate-in fade-in duration-300 shadow-[0_0_15px_rgba(16,185,129,0.15)]">
+            <div className="flex items-center gap-2.5">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>{actionSuccess}</span>
+            </div>
+            <button
+              onClick={() => setActionSuccess(null)}
+              className="text-[var(--color-terminal-green)]/70 hover:text-[var(--color-terminal-green)]"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {error && (
+          <div className="p-4 rounded-lg bg-[var(--color-restricted-red)]/10 border border-[var(--color-restricted-red)]/40 flex items-center justify-between text-[var(--color-restricted-red)] font-mono text-xs">
+            <div className="flex items-center gap-2.5">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="text-[var(--color-restricted-red)]/70 hover:text-[var(--color-restricted-red)]"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Hero Section & Actions */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[var(--color-rule)] pb-6">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-mono text-[var(--color-atelier-brass)] uppercase tracking-wider mb-2">
+              <span className="w-1.5 h-1.5 bg-[var(--color-atelier-brass)] rounded-full" />
+              ACCESS CONTROL ENCLAVES
+            </div>
+            <h1 className="font-fraunces text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-[var(--color-ink)]">
+              Security Role Definitions
+            </h1>
+            <p className="text-sm text-[var(--color-ink-muted)] mt-1.5 max-w-2xl">
+              Configure system roles, access policies, and evaluate active user assignments across operational boundary scopes.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => loadData()}
+              disabled={isLoading}
+              className="px-3.5 py-2 rounded bg-[var(--color-paper-sub)] border border-[var(--color-rule)] text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] hover:border-[var(--color-rule-active)] transition-all font-mono text-xs flex items-center gap-2 disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin text-[var(--color-atelier-brass)]" : ""}`} />
+              Sync
+            </button>
+            <button
+              onClick={() => {
+                setIsCreateModalOpen(true);
+                setCreateError(null);
+                setNewRoleName("");
+              }}
+              className="px-4 py-2 rounded bg-[var(--color-atelier-brass)] hover:bg-[var(--color-atelier-amber)] text-[var(--color-paper-terminal)] font-mono text-xs font-bold tracking-wider uppercase transition-all shadow-[0_0_20px_rgba(212,163,115,0.25)] flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Define Role
+            </button>
+          </div>
+        </div>
+
+        {/* Roles Quick Search & Stats */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 rounded-lg bg-[var(--color-paper-sub)] border border-[var(--color-rule)]">
+          <div className="flex items-center gap-4 text-xs font-mono text-[var(--color-ink-dim)]">
+            <span>Defined Scopes: <strong className="text-[var(--color-ink)]">{roles.length}</strong></span>
+            <span>·</span>
+            <span>Total Enrolled Users: <strong className="text-[var(--color-ink)]">{users.length}</strong></span>
+          </div>
+
+          {/* Search Box */}
+          <div className="relative min-w-[260px]">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-ink-dim)]" />
+            <input
+              type="text"
+              placeholder="Search roles..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-8 py-1.5 rounded bg-[var(--color-paper-terminal)] border border-[var(--color-rule)] text-xs text-[var(--color-ink)] placeholder-[var(--color-ink-dim)] focus:outline-none focus:border-[var(--color-atelier-brass)] transition-colors font-mono"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--color-ink-dim)] hover:text-[var(--color-ink)]"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Roles Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {isLoading ? (
+            <div className="col-span-full py-16 flex flex-col items-center justify-center gap-3 text-xs font-mono text-[var(--color-ink-dim)]">
+              <RefreshCw className="w-6 h-6 animate-spin text-[var(--color-atelier-brass)]" />
+              <span>Fetching role registry...</span>
+            </div>
+          ) : filteredRoles.length === 0 ? (
+            <div className="col-span-full py-16 flex flex-col items-center justify-center gap-2 text-xs font-mono text-[var(--color-ink-dim)]">
+              <Layers className="w-8 h-8 opacity-30" />
+              <span>No roles found matching &ldquo;{searchQuery}&rdquo;.</span>
+            </div>
+          ) : (
+            filteredRoles.map((r) => {
+              const assignedCount = roleUserCountMap.get(r.role_id) || 0;
+              const isCore = isSystemCoreRole(r.role_name);
+              const normalized = r.role_name.toLowerCase();
+
+              return (
+                <div
+                  key={r.role_id}
+                  className="rounded-xl bg-[var(--color-paper-card)] border border-[var(--color-rule)] hover:border-[var(--color-rule-active)] transition-all p-5 flex flex-col justify-between gap-5 group shadow-md"
+                >
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className={`p-2 rounded-lg border ${
+                          normalized === "admin"
+                            ? "bg-[var(--color-atelier-brass)]/10 text-[var(--color-atelier-brass)] border-[var(--color-atelier-brass)]/40"
+                            : normalized === "staff"
+                            ? "bg-[var(--color-terminal-cyan)]/10 text-[var(--color-terminal-cyan)] border-[var(--color-terminal-cyan)]/40"
+                            : "bg-[var(--color-terminal-green)]/10 text-[var(--color-terminal-green)] border-[var(--color-terminal-green)]/30"
+                        }`}>
+                          {normalized === "admin" ? (
+                            <ShieldAlert className="w-5 h-5" />
+                          ) : normalized === "staff" ? (
+                            <ShieldCheck className="w-5 h-5" />
+                          ) : (
+                            <Shield className="w-5 h-5" />
+                          )}
+                        </div>
+                        <div>
+                          <h3 className="font-fraunces text-lg font-bold text-[var(--color-ink)] group-hover:text-[var(--color-atelier-brass)] transition-colors">
+                            {r.role_name}
+                          </h3>
+                          <span className="font-mono text-[10px] text-[var(--color-ink-dim)] uppercase tracking-wider">
+                            {isCore ? "CORE SYSTEM ENCLAVE" : "CUSTOM ROLE SCOPE"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {isCore ? (
+                        <span className="p-1 text-[var(--color-ink-dim)]" title="Protected Core System Role">
+                          <Lock className="w-4 h-4" />
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <div className="font-mono text-xs text-[var(--color-ink-muted)] flex flex-col gap-1 bg-[var(--color-paper-terminal)]/70 p-3 rounded-lg border border-[var(--color-rule)]/50">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-[var(--color-ink-dim)]">Role ID:</span>
+                        <span className="text-[var(--color-ink-muted)] select-all font-mono text-[10px]">
+                          {r.role_id.substring(0, 18)}...
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] mt-1 pt-1 border-t border-[var(--color-rule)]/40">
+                        <span className="text-[var(--color-ink-dim)]">Active Assignees:</span>
+                        <span className="font-bold text-[var(--color-ink)] flex items-center gap-1.5">
+                          <Users className="w-3 h-3 text-[var(--color-atelier-brass)]" />
+                          {assignedCount} user{assignedCount === 1 ? "" : "s"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center justify-between pt-3 border-t border-[var(--color-rule)] font-mono text-xs">
+                    <Link
+                      href={`/admin/users?role=${r.role_name}`}
+                      className="text-[var(--color-atelier-brass)] hover:underline flex items-center gap-1 text-[11px]"
+                    >
+                      <span>View Users</span>
+                      <ChevronRight className="w-3 h-3" />
+                    </Link>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => openEditModal(r)}
+                        className="px-2.5 py-1 rounded bg-[var(--color-paper-terminal)] border border-[var(--color-rule)] text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] hover:border-[var(--color-atelier-brass)] transition-colors text-[11px] flex items-center gap-1"
+                        title="Rename Role"
+                      >
+                        <Edit3 className="w-3 h-3" />
+                        <span>Rename</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setDeletingRole(r);
+                          setDeleteError(null);
+                        }}
+                        className="px-2.5 py-1 rounded bg-[var(--color-paper-terminal)] border border-[var(--color-rule)] text-[var(--color-ink-muted)] hover:text-[var(--color-restricted-red)] hover:border-[var(--color-restricted-red)]/50 transition-colors text-[11px] disabled:opacity-30 disabled:cursor-not-allowed"
+                        title={assignedCount > 0 ? "Cannot delete role while users are assigned" : "Delete Role Definition"}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </main>
+
+      {/* ── CREATE ROLE MODAL ────────────────────────────────────────────── */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-[var(--color-paper-card)] border border-[var(--color-atelier-brass)]/50 rounded-xl p-6 shadow-2xl flex flex-col gap-5">
+            <div className="flex items-center justify-between border-b border-[var(--color-rule)] pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-[var(--color-atelier-brass)]/10 text-[var(--color-atelier-brass)] border border-[var(--color-atelier-brass)]/30">
+                  <Plus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="font-fraunces text-lg font-bold text-[var(--color-ink)]">
+                    Define Security Role
+                  </h2>
+                  <p className="text-xs font-mono text-[var(--color-ink-dim)]">
+                    Register a new role identifier in the enclave
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsCreateModalOpen(false)}
+                className="text-[var(--color-ink-dim)] hover:text-[var(--color-ink)]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {createError && (
+              <div className="p-3 rounded bg-[var(--color-restricted-red)]/10 border border-[var(--color-restricted-red)]/40 text-[var(--color-restricted-red)] text-xs font-mono flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{createError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleCreateRole} className="flex flex-col gap-4 text-xs font-mono">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[var(--color-ink-muted)] uppercase tracking-wider font-semibold">
+                  Role Identifier Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. WarehouseAuditor, CatalogManager"
+                  value={newRoleName}
+                  onChange={(e) => setNewRoleName(e.target.value)}
+                  className="w-full px-3 py-2 rounded bg-[var(--color-paper-terminal)] border border-[var(--color-rule)] text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-atelier-brass)] transition-colors"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 mt-4 pt-4 border-t border-[var(--color-rule)]">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="px-4 py-2 rounded bg-[var(--color-paper-sub)] border border-[var(--color-rule)] text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingCreate}
+                  className="px-4 py-2 rounded bg-[var(--color-atelier-brass)] hover:bg-[var(--color-atelier-amber)] text-[var(--color-paper-terminal)] font-bold uppercase tracking-wider transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isSubmittingCreate ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Define Role"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── EDIT ROLE MODAL ──────────────────────────────────────────────── */}
+      {editingRole && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-[var(--color-paper-card)] border border-[var(--color-rule-active)] rounded-xl p-6 shadow-2xl flex flex-col gap-5">
+            <div className="flex items-center justify-between border-b border-[var(--color-rule)] pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-[var(--color-atelier-brass)]/10 text-[var(--color-atelier-brass)] border border-[var(--color-atelier-brass)]/30">
+                  <Edit3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="font-fraunces text-lg font-bold text-[var(--color-ink)]">
+                    Rename Role
+                  </h2>
+                  <p className="text-xs font-mono text-[var(--color-ink-dim)]">
+                    ID: {editingRole.role_id.substring(0, 16)}...
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingRole(null)}
+                className="text-[var(--color-ink-dim)] hover:text-[var(--color-ink)]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {editError && (
+              <div className="p-3 rounded bg-[var(--color-restricted-red)]/10 border border-[var(--color-restricted-red)]/40 text-[var(--color-restricted-red)] text-xs font-mono flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{editError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleUpdateRole} className="flex flex-col gap-4 text-xs font-mono">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[var(--color-ink-muted)] uppercase tracking-wider font-semibold">
+                  New Role Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editRoleName}
+                  onChange={(e) => setEditRoleName(e.target.value)}
+                  className="w-full px-3 py-2 rounded bg-[var(--color-paper-terminal)] border border-[var(--color-rule)] text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-atelier-brass)] transition-colors"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 mt-4 pt-4 border-t border-[var(--color-rule)]">
+                <button
+                  type="button"
+                  onClick={() => setEditingRole(null)}
+                  className="px-4 py-2 rounded bg-[var(--color-paper-sub)] border border-[var(--color-rule)] text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingEdit}
+                  className="px-4 py-2 rounded bg-[var(--color-atelier-brass)] hover:bg-[var(--color-atelier-amber)] text-[var(--color-paper-terminal)] font-bold uppercase tracking-wider transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isSubmittingEdit ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save Changes"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── DELETE ROLE CONFIRMATION MODAL ────────────────────────────────── */}
+      {deletingRole && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-[var(--color-paper-card)] border border-[var(--color-restricted-red)]/50 rounded-xl p-6 shadow-2xl flex flex-col gap-5">
+            <div className="flex items-center gap-3 text-[var(--color-restricted-red)] border-b border-[var(--color-rule)] pb-4">
+              <div className="p-2 rounded-lg bg-[var(--color-restricted-red)]/10 border border-[var(--color-restricted-red)]/30">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="font-fraunces text-lg font-bold text-[var(--color-ink)]">
+                  Delete Role Definition
+                </h2>
+                <p className="text-xs font-mono text-[var(--color-ink-dim)]">
+                  Role: {deletingRole.role_name}
+                </p>
+              </div>
+            </div>
+
+            {deleteError && (
+              <div className="p-3 rounded bg-[var(--color-restricted-red)]/10 border border-[var(--color-restricted-red)]/40 text-[var(--color-restricted-red)] text-xs font-mono flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{deleteError}</span>
+              </div>
+            )}
+
+            <p className="text-xs text-[var(--color-ink-muted)] font-mono leading-relaxed">
+              Are you sure you want to permanently delete the role definition{" "}
+              <strong className="text-[var(--color-ink)]">&ldquo;{deletingRole.role_name}&rdquo;</strong>?
+              This operation cannot be undone. Note: Roles with active assigned users cannot be deleted.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-[var(--color-rule)] font-mono text-xs">
+              <button
+                type="button"
+                onClick={() => setDeletingRole(null)}
+                className="px-4 py-2 rounded bg-[var(--color-paper-sub)] border border-[var(--color-rule)] text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteRole}
+                disabled={isSubmittingDelete}
+                className="px-4 py-2 rounded bg-[var(--color-restricted-red)] hover:bg-red-600 text-white font-bold uppercase tracking-wider transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {isSubmittingDelete ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  "Delete Role"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

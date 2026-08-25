@@ -1109,3 +1109,156 @@ export async function apiGetDeliveryProviders(
     "Failed to fetch delivery providers"
   );
 }
+
+// ── People & Role Management APIs ──────────────────────────────────────────
+
+export interface RoleRead {
+  role_id: string;
+  role_name: string;
+}
+
+export interface RoleCreatePayload {
+  role_name: string;
+}
+
+export interface UserRead {
+  user_id: string;
+  email: string;
+  role_id: string;
+  role_name: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface UserCreatePayload {
+  email: string;
+  password: string;
+  role_id?: string;
+  role_name?: string;
+}
+
+export interface UserUpdatePayload {
+  email?: string;
+  password?: string;
+  role_id?: string;
+  role_name?: string;
+}
+
+export async function apiListRoles(token: string): Promise<RoleRead[]> {
+  return fetchJson<RoleRead[]>(
+    "/people/roles",
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch roles"
+  );
+}
+
+export async function apiCreateRole(
+  payload: RoleCreatePayload,
+  token: string
+): Promise<RoleRead> {
+  return fetchJson<RoleRead>(
+    "/people/roles",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    },
+    "Failed to create role"
+  );
+}
+
+export async function apiUpdateRole(
+  roleId: string,
+  payload: RoleCreatePayload,
+  token: string
+): Promise<RoleRead> {
+  return fetchJson<RoleRead>(
+    `/people/roles/${roleId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    },
+    "Failed to update role"
+  );
+}
+
+export async function apiDeleteRole(
+  roleId: string,
+  token: string
+): Promise<void> {
+  const res = await fetch(`${BACKEND_URL}/people/roles/${roleId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok && res.status !== 204) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to delete role: ${res.status}`);
+  }
+}
+
+export async function apiListUsers(token: string): Promise<UserRead[]> {
+  return fetchJson<UserRead[]>(
+    "/people/users",
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch users"
+  );
+}
+
+export async function apiCreateUser(
+  payload: UserCreatePayload,
+  token: string
+): Promise<UserRead> {
+  return fetchJson<UserRead>(
+    "/people/users",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    },
+    "Failed to create user"
+  );
+}
+
+export async function apiUpdateUser(
+  userId: string,
+  payload: UserUpdatePayload,
+  token: string
+): Promise<UserRead> {
+  return fetchJson<UserRead>(
+    `/people/users/${userId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    },
+    "Failed to update user"
+  );
+}
+
+export async function apiDeleteUser(
+  userId: string,
+  token: string
+): Promise<void> {
+  const res = await fetch(`${BACKEND_URL}/people/users/${userId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok && res.status !== 204) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to delete user: ${res.status}`);
+  }
+}
+
