@@ -20,6 +20,7 @@ import {
   MapPin,
   FileText,
   Boxes,
+  Tag,
 } from "lucide-react";
 
 interface PanelConfig {
@@ -35,20 +36,22 @@ interface PanelConfig {
 const ROLE_PANEL_CONFIGS: Record<string, PanelConfig> = {
   admin: {
     title: "Administrator Enclave Command",
-    subtitle: "Manage user identities, security roles, fulfillment pipelines, and platform vectors",
+    subtitle: "Manage catalog products, user identities, security roles, and fulfillment pipelines",
     tag: "ROLE: ADMIN (FULL ACCESS)",
     tagColor: "bg-[var(--color-restricted-red)]",
     stats: [
       { label: "Total Vectors", value: "842,910", sub: "↑ +12.4k this week" },
-      { label: "Identity & Roles", value: "Active", sub: "Enclave access verified", valColor: "text-[var(--color-atelier-brass)]" },
-      { label: "Fulfillment Queue", value: "12 Orders", sub: "Pending dispatch" },
+      { label: "Hardware Catalog", value: "Active", sub: "SKUs & variants ready", valColor: "text-[var(--color-atelier-brass)]" },
+      { label: "Identity & Roles", value: "Configured", sub: "Enclave access verified" },
       { label: "Avg Search Time", value: "38.4ms", sub: "Within sub-50ms target", valColor: "text-[var(--color-terminal-cyan)]" },
     ],
     actionsHeading: "Administrative Governance",
     actions: [
-      { label: "User Accounts", href: "/admin/users", icon: <Users className="w-4 h-4 text-[var(--color-atelier-brass)]" />, primary: true },
+      { label: "Products Hub", href: "/admin/products", icon: <Boxes className="w-4 h-4 text-[var(--color-atelier-brass)]" />, primary: true },
+      { label: "Categories", href: "/admin/categories", icon: <Tag className="w-4 h-4 text-[var(--color-terminal-cyan)]" /> },
+      { label: "User Accounts", href: "/admin/users", icon: <Users className="w-4 h-4 text-[var(--color-terminal-green)]" /> },
       { label: "Security Roles", href: "/admin/roles", icon: <Layers className="w-4 h-4 text-[var(--color-enclave-violet)]" /> },
-      { label: "Orders Hub", href: "/admin/orders", icon: <Package className="w-4 h-4 text-[var(--color-terminal-cyan)]" /> },
+      { label: "Orders Hub", href: "/admin/orders", icon: <Package className="w-4 h-4 text-[var(--color-atelier-brass)]" /> },
       { label: "Payments", href: "/admin/payments", icon: <CreditCard className="w-4 h-4 text-[var(--color-terminal-green)]" /> },
       { label: "Shipments", href: "/admin/shipments", icon: <Truck className="w-4 h-4 text-[var(--color-atelier-amber)]" /> },
       { label: "Knowledge Docs", href: "/dashboard/documents", icon: <FileText className="w-4 h-4 text-[var(--color-ink-muted)]" /> },
@@ -67,7 +70,9 @@ const ROLE_PANEL_CONFIGS: Record<string, PanelConfig> = {
     ],
     actionsHeading: "Fulfillment & Operations",
     actions: [
-      { label: "Orders Hub", href: "/admin/orders", icon: <Package className="w-4 h-4 text-[var(--color-terminal-cyan)]" />, primary: true },
+      { label: "Products Catalog", href: "/admin/products", icon: <Boxes className="w-4 h-4 text-[var(--color-atelier-brass)]" />, primary: true },
+      { label: "Categories", href: "/admin/categories", icon: <Tag className="w-4 h-4 text-[var(--color-terminal-cyan)]" /> },
+      { label: "Orders Hub", href: "/admin/orders", icon: <Package className="w-4 h-4 text-[var(--color-terminal-cyan)]" /> },
       { label: "Payments", href: "/admin/payments", icon: <CreditCard className="w-4 h-4 text-[var(--color-terminal-green)]" /> },
       { label: "Shipments", href: "/admin/shipments", icon: <Truck className="w-4 h-4 text-[var(--color-atelier-brass)]" /> },
       { label: "Test Retrieval", href: "/dashboard/chat", icon: <MessageSquare className="w-4 h-4" /> },
@@ -155,6 +160,7 @@ function DashboardContent() {
 
   const roleLower = (user.role || "user").toLowerCase();
   const isAdmin = roleLower === "admin";
+  const isStaff = roleLower === "staff";
 
   const handleLogout = () => {
     logout();
@@ -190,23 +196,33 @@ function DashboardContent() {
         </Link>
 
         <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto py-1">
-          {isAdmin && (
+          {(isAdmin || isStaff) && (
             <>
               <Link
-                href="/admin/users"
+                href="/admin/products"
                 className="atelier-btn atelier-btn-secondary !py-1.5 !px-2.5 text-xs flex items-center gap-1.5 border-[var(--color-atelier-brass)]/40 text-[var(--color-atelier-brass)]"
               >
-                <Users className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Users</span>
+                <Boxes className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Products</span>
               </Link>
               <Link
-                href="/admin/roles"
+                href="/admin/categories"
                 className="atelier-btn atelier-btn-secondary !py-1.5 !px-2.5 text-xs flex items-center gap-1.5"
               >
-                <Layers className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Roles</span>
+                <Tag className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Categories</span>
               </Link>
             </>
+          )}
+
+          {isAdmin && (
+            <Link
+              href="/admin/users"
+              className="atelier-btn atelier-btn-secondary !py-1.5 !px-2.5 text-xs flex items-center gap-1.5"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline">Users</span>
+            </Link>
           )}
 
           <Link
