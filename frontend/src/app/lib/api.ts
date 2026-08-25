@@ -756,6 +756,46 @@ export async function apiCreateAddress(
   return res.json();
 }
 
+export interface AddressUpdatePayload {
+  address_line?: string;
+  city_id?: string;
+  is_default?: boolean;
+}
+
+export async function apiUpdateAddress(
+  addressId: string,
+  payload: AddressUpdatePayload,
+  token: string
+): Promise<AddressRead> {
+  const res = await fetch(`${BACKEND_URL}/addresses/${addressId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to update address: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiDeleteAddress(
+  addressId: string,
+  token: string
+): Promise<void> {
+  const res = await fetch(`${BACKEND_URL}/addresses/${addressId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok && res.status !== 204) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to delete address: ${res.status}`);
+  }
+}
+
 export async function apiGetCountries(token: string): Promise<CountryRead[]> {
   const res = await fetch(`${BACKEND_URL}/countries`, {
     headers: { Authorization: `Bearer ${token}` },

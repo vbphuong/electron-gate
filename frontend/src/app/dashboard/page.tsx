@@ -70,8 +70,8 @@ const ROLE_PANEL_CONFIGS: Record<string, PanelConfig> = {
     actions: [
       { label: "Ask Assistant", href: "/dashboard/chat", icon: <MessageSquare className="w-4 h-4" />, primary: true },
       { label: "My Orders & Tracking", href: "/account/orders", icon: <Search className="w-4 h-4 text-[var(--color-atelier-brass)]" /> },
+      { label: "Delivery Addresses", href: "/account/addresses", icon: <Search className="w-4 h-4 text-[var(--color-terminal-green)]" /> },
       { label: "Browse Documents", href: "/dashboard/documents", icon: <Search className="w-4 h-4" /> },
-      { label: "Upload Document", href: "/dashboard/upload", icon: <UploadCloud className="w-4 h-4 text-[var(--color-atelier-brass)]" /> },
     ],
   },
 };

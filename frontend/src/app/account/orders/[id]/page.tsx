@@ -238,6 +238,12 @@ export default function OrderTrackingDetailPage() {
                 MY ORDERS
               </Link>
               <Link
+                href="/account/addresses"
+                className="px-3 py-1.5 rounded text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] hover:bg-[var(--color-paper-sub)] transition-colors"
+              >
+                ADDRESSES
+              </Link>
+              <Link
                 href="/dashboard/chat"
                 className="px-3 py-1.5 rounded text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] hover:bg-[var(--color-paper-sub)] transition-colors"
               >
