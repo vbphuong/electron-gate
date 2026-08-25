@@ -5,15 +5,22 @@ const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:80
 async function fetchJson<T>(
   path: string,
   init?: RequestInit,
-  fallbackErrMsg: string = "Request failed"
+  fallbackErrMsg: string = "Request failed",
+  options?: { allow404AsNull?: boolean }
 ): Promise<T> {
   const url = path.startsWith("http") ? path : `${BACKEND_URL}${path}`;
   const res = await fetch(url, init);
   if (!res.ok) {
+    if (options?.allow404AsNull && res.status === 404) {
+      return null as unknown as T;
+    }
     const errorData = await res.json().catch(() => null);
     throw new Error(errorData?.detail || `${fallbackErrMsg}: ${res.status}`);
   }
-  return res.json();
+  if (res.status === 204 || res.headers.get("content-length") === "0") {
+    return undefined as unknown as T;
+  }
+  return res.json().catch(() => undefined as unknown as T);
 }
 
 // ── Authentication & Identity ────────────────────────────────────────────────
@@ -157,14 +164,14 @@ export async function apiDeleteDocument(
   documentId: string,
   token: string
 ): Promise<void> {
-  const res = await fetch(`${BACKEND_URL}/ingestion/documents/${documentId}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok && res.status !== 204) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to delete document: ${res.status}`);
-  }
+  return fetchJson<void>(
+    `/ingestion/documents/${documentId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to delete document"
+  );
 }
 
 export interface SourceChunk {
@@ -401,14 +408,14 @@ export async function apiDeleteCategory(
   categoryId: string,
   token: string
 ): Promise<void> {
-  const res = await fetch(`${BACKEND_URL}/categories/${categoryId}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok && res.status !== 204) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to delete category: ${res.status}`);
-  }
+  return fetchJson<void>(
+    `/categories/${categoryId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to delete category"
+  );
 }
 
 
@@ -566,14 +573,14 @@ export async function apiDeleteCartItem(
   variantId: string,
   token: string
 ): Promise<void> {
-  const res = await fetch(`${BACKEND_URL}/carts/${cartId}/items/${variantId}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok && res.status !== 204) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to remove cart item: ${res.status}`);
-  }
+  return fetchJson<void>(
+    `/carts/${cartId}/items/${variantId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to remove cart item"
+  );
 }
 
 export interface VariantCreatePayload {
@@ -638,17 +645,14 @@ export async function apiDeleteVariant(
   variantId: string,
   token: string
 ): Promise<void> {
-  const res = await fetch(
-    `${BACKEND_URL}/products/${productId}/variants/${variantId}`,
+  return fetchJson<void>(
+    `/products/${productId}/variants/${variantId}`,
     {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
-    }
+    },
+    "Failed to delete variant"
   );
-  if (!res.ok && res.status !== 204) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to delete variant: ${res.status}`);
-  }
 }
 
 export interface ProductUpdatePayload {
@@ -681,14 +685,14 @@ export async function apiDeleteProduct(
   productId: string,
   token: string
 ): Promise<void> {
-  const res = await fetch(`${BACKEND_URL}/products/${productId}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok && res.status !== 204) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to delete product: ${res.status}`);
-  }
+  return fetchJson<void>(
+    `/products/${productId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to delete product"
+  );
 }
 
 export async function apiGetProductVariants(
@@ -780,14 +784,14 @@ export async function apiDeleteProductSpec(
   specId: string,
   token: string
 ): Promise<void> {
-  const res = await fetch(`${BACKEND_URL}/products/${productId}/specs/${specId}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok && res.status !== 204) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to delete spec: ${res.status}`);
-  }
+  return fetchJson<void>(
+    `/products/${productId}/specs/${specId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to delete spec"
+  );
 }
 
 export interface ProductImageCreatePayload {
@@ -848,14 +852,14 @@ export async function apiDeleteProductImage(
   imageId: string,
   token: string
 ): Promise<void> {
-  const res = await fetch(`${BACKEND_URL}/products/${productId}/images/${imageId}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok && res.status !== 204) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to delete product image: ${res.status}`);
-  }
+  return fetchJson<void>(
+    `/products/${productId}/images/${imageId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to delete product image"
+  );
 }
 
 
@@ -993,14 +997,14 @@ export async function apiDeleteAddress(
   addressId: string,
   token: string
 ): Promise<void> {
-  const res = await fetch(`${BACKEND_URL}/addresses/${addressId}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok && res.status !== 204) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to delete address: ${res.status}`);
-  }
+  return fetchJson<void>(
+    `/addresses/${addressId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to delete address"
+  );
 }
 
 export async function apiGetCountries(token: string): Promise<CountryRead[]> {
@@ -1141,30 +1145,24 @@ export async function apiGetOrderShipment(
   orderId: string,
   token: string
 ): Promise<ShipmentRead | null> {
-  const res = await fetch(`${BACKEND_URL}/orders/${orderId}/shipment`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    if (res.status === 404) return null;
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to fetch shipment: ${res.status}`);
-  }
-  return res.json();
+  return fetchJson<ShipmentRead | null>(
+    `/orders/${orderId}/shipment`,
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch shipment",
+    { allow404AsNull: true }
+  );
 }
 
 export async function apiGetOrderPayment(
   orderId: string,
   token: string
 ): Promise<PaymentRead | null> {
-  const res = await fetch(`${BACKEND_URL}/orders/${orderId}/payment`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    if (res.status === 404) return null;
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to fetch payment: ${res.status}`);
-  }
-  return res.json();
+  return fetchJson<PaymentRead | null>(
+    `/orders/${orderId}/payment`,
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch payment",
+    { allow404AsNull: true }
+  );
 }
 
 // ── Admin & Staff Operations APIs ──────────────────────────────────────────
@@ -1462,14 +1460,14 @@ export async function apiDeleteRole(
   roleId: string,
   token: string
 ): Promise<void> {
-  const res = await fetch(`${BACKEND_URL}/people/roles/${roleId}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok && res.status !== 204) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to delete role: ${res.status}`);
-  }
+  return fetchJson<void>(
+    `/people/roles/${roleId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to delete role"
+  );
 }
 
 export async function apiListUsers(token: string): Promise<UserRead[]> {
@@ -1521,13 +1519,13 @@ export async function apiDeleteUser(
   userId: string,
   token: string
 ): Promise<void> {
-  const res = await fetch(`${BACKEND_URL}/people/users/${userId}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok && res.status !== 204) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to delete user: ${res.status}`);
-  }
+  return fetchJson<void>(
+    `/people/users/${userId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to delete user"
+  );
 }
 
