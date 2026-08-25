@@ -31,6 +31,7 @@ const ROLE_PANEL_CONFIGS: Record<string, PanelConfig> = {
     actionsHeading: "Administrator Actions",
     actions: [
       { label: "Chat", href: "/dashboard/chat", icon: <MessageSquare className="w-4 h-4" />, primary: true },
+      { label: "Order Tracking", href: "/account/orders", icon: <Search className="w-4 h-4 text-[var(--color-terminal-cyan)]" /> },
       { label: "All Documents", href: "/dashboard/documents", icon: <Search className="w-4 h-4" /> },
       { label: "Upload Docs", href: "/dashboard/upload", icon: <UploadCloud className="w-4 h-4 text-[var(--color-atelier-brass)]" /> },
     ],
@@ -49,6 +50,7 @@ const ROLE_PANEL_CONFIGS: Record<string, PanelConfig> = {
     actionsHeading: "Document Operations",
     actions: [
       { label: "Test Retrieval", href: "/dashboard/chat", icon: <MessageSquare className="w-4 h-4" />, primary: true },
+      { label: "Order Tracking", href: "/account/orders", icon: <Search className="w-4 h-4 text-[var(--color-terminal-cyan)]" /> },
       { label: "All Documents", href: "/dashboard/documents", icon: <Search className="w-4 h-4" /> },
       { label: "Upload Docs", href: "/dashboard/upload", icon: <UploadCloud className="w-4 h-4 text-[var(--color-atelier-brass)]" /> },
     ],
@@ -67,6 +69,7 @@ const ROLE_PANEL_CONFIGS: Record<string, PanelConfig> = {
     actionsHeading: "Search & Knowledge Actions",
     actions: [
       { label: "Ask Assistant", href: "/dashboard/chat", icon: <MessageSquare className="w-4 h-4" />, primary: true },
+      { label: "My Orders & Tracking", href: "/account/orders", icon: <Search className="w-4 h-4 text-[var(--color-atelier-brass)]" /> },
       { label: "Browse Documents", href: "/dashboard/documents", icon: <Search className="w-4 h-4" /> },
       { label: "Upload Document", href: "/dashboard/upload", icon: <UploadCloud className="w-4 h-4 text-[var(--color-atelier-brass)]" /> },
     ],

@@ -689,6 +689,7 @@ export interface OrderItemBrief {
   variant_model?: string | null;
   variant_color?: string | null;
   variant_storage?: string | null;
+  variant_image_url?: string | null;
 }
 
 export interface OrderHistoryBrief {
@@ -813,6 +814,112 @@ export async function apiGetOrderById(
   return res.json();
 }
 
+export interface OrderListItem {
+  order_id: string;
+  user_id: string;
+  order_number: string;
+  order_status: string;
+  subtotal: number | string;
+  shipping_fee: number | string;
+  discount_amount: number | string;
+  created_at?: string | null;
+  item_count: number;
+}
+
+export interface OrderItemRead {
+  order_item_id: string;
+  order_id: string;
+  variant_id: string;
+  quantity: number;
+  unit_price: number | string;
+  product_name?: string | null;
+  variant_model?: string | null;
+  variant_color?: string | null;
+  variant_storage?: string | null;
+  variant_image_url?: string | null;
+}
+
+export interface OrderHistoryRead {
+  or_his_id: string;
+  order_id: string;
+  address_line: string;
+  recipient_name: string;
+  country_name: string;
+  city_name: string;
+  phone: string;
+}
+
+export interface ShipmentRead {
+  shipment_id: string;
+  order_id: string;
+  delivery_provider_id: string;
+  delivery_provider_name?: string | null;
+  tracking_number?: string | null;
+  status: string;
+  delivered_at?: string | null;
+}
+
+export async function apiGetOrders(
+  token: string,
+  options?: { userId?: string; status?: string }
+): Promise<OrderListItem[]> {
+  const url = new URL(`${BACKEND_URL}/orders`);
+  if (options?.userId) url.searchParams.append("user_id", options.userId);
+  if (options?.status) url.searchParams.append("status", options.status);
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to fetch orders: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiGetOrderItems(
+  orderId: string,
+  token: string
+): Promise<OrderItemRead[]> {
+  const res = await fetch(`${BACKEND_URL}/orders/${orderId}/items`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to fetch order items: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiGetOrderHistory(
+  orderId: string,
+  token: string
+): Promise<OrderHistoryRead[]> {
+  const res = await fetch(`${BACKEND_URL}/orders/${orderId}/history`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to fetch order tracking history: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiGetOrderShipment(
+  orderId: string,
+  token: string
+): Promise<ShipmentRead | null> {
+  const res = await fetch(`${BACKEND_URL}/orders/${orderId}/shipment`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    if (res.status === 404) return null;
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to fetch shipment: ${res.status}`);
+  }
+  return res.json();
+}
+
 export async function apiGetOrderPayment(
   orderId: string,
   token: string
@@ -827,3 +934,4 @@ export async function apiGetOrderPayment(
   }
   return res.json();
 }
+
