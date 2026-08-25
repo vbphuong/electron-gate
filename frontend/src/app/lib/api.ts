@@ -1,5 +1,23 @@
 const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000").replace(/\/+$/, "");
 
+// ── Generic JSON Request Helper ───────────────────────────────────────────────
+
+async function fetchJson<T>(
+  path: string,
+  init?: RequestInit,
+  fallbackErrMsg: string = "Request failed"
+): Promise<T> {
+  const url = path.startsWith("http") ? path : `${BACKEND_URL}${path}`;
+  const res = await fetch(url, init);
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `${fallbackErrMsg}: ${res.status}`);
+  }
+  return res.json();
+}
+
+// ── Authentication & Identity ────────────────────────────────────────────────
+
 export interface LoginResponse {
   access_token: string;
   token_type: string;
@@ -12,6 +30,35 @@ export interface UserInfo {
   role: string;
 }
 
+export async function apiLogin(
+  email: string,
+  password: string
+): Promise<LoginResponse> {
+  const formData = new URLSearchParams();
+  formData.append("username", email);
+  formData.append("password", password);
+
+  return fetchJson<LoginResponse>(
+    "/auth/token",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: formData.toString(),
+    },
+    "Login failed"
+  );
+}
+
+export async function apiGetMe(token: string): Promise<UserInfo> {
+  return fetchJson<UserInfo>(
+    "/auth/me",
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch user info"
+  );
+}
+
+// ── Document Ingestion & RAG ─────────────────────────────────────────────────
+
 export interface DocumentUploadResponse {
   document_id: string;
   uploaded_by?: string | null;
@@ -21,40 +68,6 @@ export interface DocumentUploadResponse {
   total_page: number;
   total_chunk: number;
   private: boolean;
-}
-
-export async function apiLogin(
-  email: string,
-  password: string
-): Promise<LoginResponse> {
-  const formData = new URLSearchParams();
-  formData.append("username", email);
-  formData.append("password", password);
-
-  const res = await fetch(`${BACKEND_URL}/auth/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: formData.toString(),
-  });
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || "Login failed");
-  }
-
-  return res.json();
-}
-
-export async function apiGetMe(token: string): Promise<UserInfo> {
-  const res = await fetch(`${BACKEND_URL}/auth/me`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  if (!res.ok) {
-    throw new Error("Failed to fetch user info");
-  }
-
-  return res.json();
 }
 
 export async function apiUploadDocument(
@@ -78,7 +91,6 @@ export async function apiUploadDocument(
 
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable && onProgress) {
-        // Map transmission to 0-85%, remaining 15% is vector embedding generation
         const percentComplete = Math.min(Math.round((event.loaded / event.total) * 85), 85);
         onProgress(percentComplete);
       }
@@ -123,32 +135,22 @@ export async function apiUploadDocument(
 export async function apiGetDocuments(
   token: string
 ): Promise<DocumentUploadResponse[]> {
-  const res = await fetch(`${BACKEND_URL}/ingestion/documents`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to fetch documents: ${res.status}`);
-  }
-
-  return res.json();
+  return fetchJson<DocumentUploadResponse[]>(
+    "/ingestion/documents",
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch documents"
+  );
 }
 
 export async function apiGetDocumentById(
   documentId: string,
   token: string
 ): Promise<DocumentUploadResponse> {
-  const res = await fetch(`${BACKEND_URL}/ingestion/documents/${documentId}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to fetch document ${documentId}: ${res.status}`);
-  }
-
-  return res.json();
+  return fetchJson<DocumentUploadResponse>(
+    `/ingestion/documents/${documentId}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+    `Failed to fetch document ${documentId}`
+  );
 }
 
 export async function apiDeleteDocument(
@@ -159,7 +161,6 @@ export async function apiDeleteDocument(
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` },
   });
-
   if (!res.ok && res.status !== 204) {
     const errorData = await res.json().catch(() => null);
     throw new Error(errorData?.detail || `Failed to delete document: ${res.status}`);
@@ -204,42 +205,36 @@ export async function apiRAGQuery(
   request: RAGQueryRequest,
   token: string
 ): Promise<RAGQueryResponse> {
-  const res = await fetch(`${BACKEND_URL}/rag/query`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+  return fetchJson<RAGQueryResponse>(
+    "/rag/query",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(request),
     },
-    body: JSON.stringify(request),
-  });
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `RAG query failed with status ${res.status}`);
-  }
-
-  return res.json();
+    "RAG query failed"
+  );
 }
 
 export async function apiRAGSearch(
   request: RAGSearchRequest,
   token: string
 ): Promise<RAGSearchResponse> {
-  const res = await fetch(`${BACKEND_URL}/rag/search`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+  return fetchJson<RAGSearchResponse>(
+    "/rag/search",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(request),
     },
-    body: JSON.stringify(request),
-  });
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `RAG search failed with status ${res.status}`);
-  }
-
-  return res.json();
+    "RAG search failed"
+  );
 }
 
 // ── E-Commerce & Product Browsing ─────────────────────────────────────────────
@@ -346,24 +341,14 @@ export async function apiGetProducts(
   const headers: HeadersInit = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(url.toString(), { headers });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to fetch products: ${res.status}`);
-  }
-  return res.json();
+  return fetchJson<ProductListItem[]>(url.toString(), { headers }, "Failed to fetch products");
 }
 
 export async function apiGetCategories(token?: string | null): Promise<Category[]> {
   const headers: HeadersInit = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${BACKEND_URL}/categories`, { headers });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to fetch categories: ${res.status}`);
-  }
-  return res.json();
+  return fetchJson<Category[]>("/categories", { headers }, "Failed to fetch categories");
 }
 
 export async function apiGetProductById(
@@ -373,12 +358,7 @@ export async function apiGetProductById(
   const headers: HeadersInit = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${BACKEND_URL}/products/${productId}`, { headers });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to fetch product: ${res.status}`);
-  }
-  return res.json();
+  return fetchJson<ProductRead>(`/products/${productId}`, { headers }, "Failed to fetch product");
 }
 
 export async function apiSearchProductsByImage(
@@ -389,33 +369,28 @@ export async function apiSearchProductsByImage(
   const headers: HeadersInit = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${BACKEND_URL}/products/search-by-image`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      embedding,
-      top_k: options?.top_k ?? 10,
-      min_similarity: options?.min_similarity ?? 0.5,
-      category_id: options?.category_id ?? null,
-    }),
-  });
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Visual search failed: ${res.status}`);
-  }
-  return res.json();
+  return fetchJson<VisualSearchResultItem[]>(
+    "/products/search-by-image",
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        embedding,
+        top_k: options?.top_k ?? 10,
+        min_similarity: options?.min_similarity ?? 0.5,
+        category_id: options?.category_id ?? null,
+      }),
+    },
+    "Visual search failed"
+  );
 }
 
 export async function apiGetMyCart(token: string): Promise<CartRead> {
-  const res = await fetch(`${BACKEND_URL}/carts/me`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to fetch cart: ${res.status}`);
-  }
-  return res.json();
+  return fetchJson<CartRead>(
+    "/carts/me",
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch cart"
+  );
 }
 
 export interface ProductCreatePayload {
@@ -429,21 +404,18 @@ export async function apiCreateProduct(
   payload: ProductCreatePayload,
   token: string
 ): Promise<ProductRead> {
-  const res = await fetch(`${BACKEND_URL}/products`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+  return fetchJson<ProductRead>(
+    "/products",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to create product: ${res.status}`);
-  }
-
-  return res.json();
+    "Failed to create product"
+  );
 }
 
 export interface ImageUploadResponse {
@@ -458,20 +430,15 @@ export async function apiUploadProductImage(
   const formData = new FormData();
   formData.append("file", file);
 
-  const res = await fetch(`${BACKEND_URL}/products/upload-image`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
+  return fetchJson<ImageUploadResponse>(
+    "/products/upload-image",
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
     },
-    body: formData,
-  });
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to upload image: ${res.status}`);
-  }
-
-  return res.json();
+    "Failed to upload image"
+  );
 }
 
 export async function apiGetProductImages(
@@ -481,12 +448,11 @@ export async function apiGetProductImages(
   const headers: HeadersInit = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${BACKEND_URL}/products/${productId}/images`, { headers });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to fetch product images: ${res.status}`);
-  }
-  return res.json();
+  return fetchJson<ProductImageRead[]>(
+    `/products/${productId}/images`,
+    { headers },
+    "Failed to fetch product images"
+  );
 }
 
 export async function apiAddToCart(
@@ -495,24 +461,18 @@ export async function apiAddToCart(
   quantity: number = 1,
   token: string
 ): Promise<CartItemBrief> {
-  const res = await fetch(`${BACKEND_URL}/carts/${cartId}/items`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+  return fetchJson<CartItemBrief>(
+    `/carts/${cartId}/items`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ variant_id: variantId, quantity }),
     },
-    body: JSON.stringify({
-      variant_id: variantId,
-      quantity,
-    }),
-  });
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to add item to cart: ${res.status}`);
-  }
-
-  return res.json();
+    "Failed to add item to cart"
+  );
 }
 
 export interface CartItemUpdatePayload {
@@ -526,21 +486,18 @@ export async function apiUpdateCartItem(
   payload: CartItemUpdatePayload,
   token: string
 ): Promise<CartItemBrief> {
-  const res = await fetch(`${BACKEND_URL}/carts/${cartId}/items/${variantId}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+  return fetchJson<CartItemBrief>(
+    `/carts/${cartId}/items/${variantId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to update cart item: ${res.status}`);
-  }
-
-  return res.json();
+    "Failed to update cart item"
+  );
 }
 
 export async function apiDeleteCartItem(
@@ -550,11 +507,8 @@ export async function apiDeleteCartItem(
 ): Promise<void> {
   const res = await fetch(`${BACKEND_URL}/carts/${cartId}/items/${variantId}`, {
     method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { Authorization: `Bearer ${token}` },
   });
-
   if (!res.ok && res.status !== 204) {
     const errorData = await res.json().catch(() => null);
     throw new Error(errorData?.detail || `Failed to remove cart item: ${res.status}`);
@@ -575,21 +529,18 @@ export async function apiCreateVariant(
   payload: VariantCreatePayload,
   token: string
 ): Promise<VariantBrief> {
-  const res = await fetch(`${BACKEND_URL}/products/${productId}/variants`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+  return fetchJson<VariantBrief>(
+    `/products/${productId}/variants`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to create variant: ${res.status}`);
-  }
-
-  return res.json();
+    "Failed to create variant"
+  );
 }
 
 export interface VariantUpdatePayload {
@@ -607,8 +558,8 @@ export async function apiUpdateVariant(
   payload: VariantUpdatePayload,
   token: string
 ): Promise<VariantBrief> {
-  const res = await fetch(
-    `${BACKEND_URL}/products/${productId}/variants/${variantId}`,
+  return fetchJson<VariantBrief>(
+    `/products/${productId}/variants/${variantId}`,
     {
       method: "PUT",
       headers: {
@@ -616,15 +567,9 @@ export async function apiUpdateVariant(
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(payload),
-    }
+    },
+    "Failed to update variant"
   );
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to update variant: ${res.status}`);
-  }
-
-  return res.json();
 }
 
 export async function apiDeleteVariant(
@@ -636,12 +581,9 @@ export async function apiDeleteVariant(
     `${BACKEND_URL}/products/${productId}/variants/${variantId}`,
     {
       method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { Authorization: `Bearer ${token}` },
     }
   );
-
   if (!res.ok && res.status !== 204) {
     const errorData = await res.json().catch(() => null);
     throw new Error(errorData?.detail || `Failed to delete variant: ${res.status}`);
@@ -728,33 +670,29 @@ export interface PaymentRead {
 // ── Checkout & Address APIs ───────────────────────────────────────────────────
 
 export async function apiGetMyAddresses(token: string): Promise<AddressRead[]> {
-  const res = await fetch(`${BACKEND_URL}/addresses/me`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to fetch addresses: ${res.status}`);
-  }
-  return res.json();
+  return fetchJson<AddressRead[]>(
+    "/addresses/me",
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch addresses"
+  );
 }
 
 export async function apiCreateAddress(
   payload: AddressCreatePayload,
   token: string
 ): Promise<AddressRead> {
-  const res = await fetch(`${BACKEND_URL}/addresses`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+  return fetchJson<AddressRead>(
+    "/addresses",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to create address: ${res.status}`);
-  }
-  return res.json();
+    "Failed to create address"
+  );
 }
 
 export interface AddressUpdatePayload {
@@ -768,19 +706,18 @@ export async function apiUpdateAddress(
   payload: AddressUpdatePayload,
   token: string
 ): Promise<AddressRead> {
-  const res = await fetch(`${BACKEND_URL}/addresses/${addressId}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+  return fetchJson<AddressRead>(
+    `/addresses/${addressId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to update address: ${res.status}`);
-  }
-  return res.json();
+    "Failed to update address"
+  );
 }
 
 export async function apiDeleteAddress(
@@ -798,28 +735,22 @@ export async function apiDeleteAddress(
 }
 
 export async function apiGetCountries(token: string): Promise<CountryRead[]> {
-  const res = await fetch(`${BACKEND_URL}/countries`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to fetch countries: ${res.status}`);
-  }
-  return res.json();
+  return fetchJson<CountryRead[]>(
+    "/countries",
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch countries"
+  );
 }
 
 export async function apiGetCities(
   countryId: string,
   token: string
 ): Promise<CityRead[]> {
-  const res = await fetch(`${BACKEND_URL}/countries/${countryId}/cities`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to fetch cities: ${res.status}`);
-  }
-  return res.json();
+  return fetchJson<CityRead[]>(
+    `/countries/${countryId}/cities`,
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch cities"
+  );
 }
 
 export async function apiCheckout(
@@ -827,36 +758,32 @@ export async function apiCheckout(
   token: string,
   paymentMethod?: string
 ): Promise<OrderRead> {
-  const res = await fetch(`${BACKEND_URL}/orders/checkout`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+  return fetchJson<OrderRead>(
+    "/orders/checkout",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        shipping_address_id: shippingAddressId,
+        payment_method: paymentMethod || "credit_card",
+      }),
     },
-    body: JSON.stringify({
-      shipping_address_id: shippingAddressId,
-      payment_method: paymentMethod || "credit_card",
-    }),
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Checkout failed: ${res.status}`);
-  }
-  return res.json();
+    "Checkout failed"
+  );
 }
 
 export async function apiGetOrderById(
   orderId: string,
   token: string
 ): Promise<OrderRead> {
-  const res = await fetch(`${BACKEND_URL}/orders/${orderId}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to fetch order: ${res.status}`);
-  }
-  return res.json();
+  return fetchJson<OrderRead>(
+    `/orders/${orderId}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch order"
+  );
 }
 
 export interface OrderListItem {
@@ -912,42 +839,33 @@ export async function apiGetOrders(
   if (options?.userId) url.searchParams.append("user_id", options.userId);
   if (options?.status) url.searchParams.append("status", options.status);
 
-  const res = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to fetch orders: ${res.status}`);
-  }
-  return res.json();
+  return fetchJson<OrderListItem[]>(
+    url.toString(),
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch orders"
+  );
 }
 
 export async function apiGetOrderItems(
   orderId: string,
   token: string
 ): Promise<OrderItemRead[]> {
-  const res = await fetch(`${BACKEND_URL}/orders/${orderId}/items`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to fetch order items: ${res.status}`);
-  }
-  return res.json();
+  return fetchJson<OrderItemRead[]>(
+    `/orders/${orderId}/items`,
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch order items"
+  );
 }
 
 export async function apiGetOrderHistory(
   orderId: string,
   token: string
 ): Promise<OrderHistoryRead[]> {
-  const res = await fetch(`${BACKEND_URL}/orders/${orderId}/history`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to fetch order tracking history: ${res.status}`);
-  }
-  return res.json();
+  return fetchJson<OrderHistoryRead[]>(
+    `/orders/${orderId}/history`,
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch order tracking history"
+  );
 }
 
 export async function apiGetOrderShipment(
@@ -1037,19 +955,18 @@ export async function apiUpdateOrder(
   payload: OrderUpdatePayload,
   token: string
 ): Promise<OrderRead> {
-  const res = await fetch(`${BACKEND_URL}/orders/${orderId}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+  return fetchJson<OrderRead>(
+    `/orders/${orderId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to update order: ${res.status}`);
-  }
-  return res.json();
+    "Failed to update order"
+  );
 }
 
 export async function apiAddOrderHistory(
@@ -1057,19 +974,18 @@ export async function apiAddOrderHistory(
   payload: OrderHistoryCreatePayload,
   token: string
 ): Promise<OrderHistoryRead> {
-  const res = await fetch(`${BACKEND_URL}/orders/${orderId}/history`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+  return fetchJson<OrderHistoryRead>(
+    `/orders/${orderId}/history`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to append order history: ${res.status}`);
-  }
-  return res.json();
+    "Failed to append order history"
+  );
 }
 
 export async function apiListPayments(
@@ -1080,34 +996,30 @@ export async function apiListPayments(
   if (options?.order_id) query.append("order_id", options.order_id);
   if (options?.payment_status) query.append("payment_status", options.payment_status);
 
-  const url = `${BACKEND_URL}/payments${query.toString() ? `?${query.toString()}` : ""}`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to list payments: ${res.status}`);
-  }
-  return res.json();
+  const path = `/payments${query.toString() ? `?${query.toString()}` : ""}`;
+  return fetchJson<PaymentRead[]>(
+    path,
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to list payments"
+  );
 }
 
 export async function apiCreatePayment(
   payload: PaymentCreatePayload,
   token: string
 ): Promise<PaymentRead> {
-  const res = await fetch(`${BACKEND_URL}/payments`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+  return fetchJson<PaymentRead>(
+    "/payments",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to create payment: ${res.status}`);
-  }
-  return res.json();
+    "Failed to create payment"
+  );
 }
 
 export async function apiUpdatePayment(
@@ -1115,19 +1027,18 @@ export async function apiUpdatePayment(
   payload: PaymentUpdatePayload,
   token: string
 ): Promise<PaymentRead> {
-  const res = await fetch(`${BACKEND_URL}/payments/${paymentId}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+  return fetchJson<PaymentRead>(
+    `/payments/${paymentId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to update payment: ${res.status}`);
-  }
-  return res.json();
+    "Failed to update payment"
+  );
 }
 
 export async function apiListShipments(
@@ -1139,34 +1050,30 @@ export async function apiListShipments(
   if (options?.status) query.append("status", options.status);
   if (options?.provider_id) query.append("provider_id", options.provider_id);
 
-  const url = `${BACKEND_URL}/shipments${query.toString() ? `?${query.toString()}` : ""}`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to list shipments: ${res.status}`);
-  }
-  return res.json();
+  const path = `/shipments${query.toString() ? `?${query.toString()}` : ""}`;
+  return fetchJson<ShipmentRead[]>(
+    path,
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to list shipments"
+  );
 }
 
 export async function apiCreateShipment(
   payload: ShipmentCreatePayload,
   token: string
 ): Promise<ShipmentRead> {
-  const res = await fetch(`${BACKEND_URL}/shipments`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+  return fetchJson<ShipmentRead>(
+    "/shipments",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to create shipment: ${res.status}`);
-  }
-  return res.json();
+    "Failed to create shipment"
+  );
 }
 
 export async function apiUpdateShipment(
@@ -1174,19 +1081,18 @@ export async function apiUpdateShipment(
   payload: ShipmentUpdatePayload,
   token: string
 ): Promise<ShipmentRead> {
-  const res = await fetch(`${BACKEND_URL}/shipments/${shipmentId}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+  return fetchJson<ShipmentRead>(
+    `/shipments/${shipmentId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to update shipment: ${res.status}`);
-  }
-  return res.json();
+    "Failed to update shipment"
+  );
 }
 
 export async function apiGetDeliveryProviders(
@@ -1196,15 +1102,10 @@ export async function apiGetDeliveryProviders(
   const query = new URLSearchParams();
   if (isActive !== undefined) query.append("is_active", String(isActive));
 
-  const url = `${BACKEND_URL}/delivery-providers${query.toString() ? `?${query.toString()}` : ""}`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null);
-    throw new Error(errorData?.detail || `Failed to fetch delivery providers: ${res.status}`);
-  }
-  return res.json();
+  const path = `/delivery-providers${query.toString() ? `?${query.toString()}` : ""}`;
+  return fetchJson<DeliveryProviderRead[]>(
+    path,
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch delivery providers"
+  );
 }
-
-
