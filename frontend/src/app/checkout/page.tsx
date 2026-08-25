@@ -253,60 +253,7 @@ export default function CheckoutPage() {
       <div className="atelier-canvas-grid fixed inset-0 pointer-events-none opacity-40" />
 
       {/* Top Header */}
-      <header className="sticky top-0 z-40 bg-[var(--color-paper)]/90 backdrop-blur-md border-b border-[var(--color-rule)]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-3 group">
-              <div className="atelier-logo-stamp !w-9 !h-9 group-hover:border-[var(--color-atelier-brass)] transition-colors">
-                <svg width="20" height="20" viewBox="0 0 40 40" fill="none">
-                  <path
-                    d="M20 4L4 12V28L20 36L36 28V12L20 4Z"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M20 4V36M4 12L36 28M36 12L4 28"
-                    stroke="currentColor"
-                    strokeWidth="1.75"
-                    opacity="0.75"
-                  />
-                </svg>
-              </div>
-              <div className="flex flex-col">
-                <span className="font-fraunces font-bold text-sm tracking-tight text-[var(--color-ink)]">
-                  ELECTRON GATE
-                </span>
-                <span className="font-mono text-[10px] text-[var(--color-ink-dim)] tracking-widest uppercase">
-                  SECURE CHECKOUT · SECTION 4.1
-                </span>
-              </div>
-            </Link>
-
-            <nav className="hidden md:flex items-center gap-1 pl-4 border-l border-[var(--color-rule)] text-xs font-mono">
-              <Link
-                href="/products"
-                className="px-3 py-1.5 rounded text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] hover:bg-[var(--color-paper-sub)] transition-colors"
-              >
-                CATALOG
-              </Link>
-              <Link
-                href="/cart"
-                className="px-3 py-1.5 rounded text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] hover:bg-[var(--color-paper-sub)] transition-colors"
-              >
-                CART
-              </Link>
-            </nav>
-          </div>
-
-          <div className="flex items-center gap-3 font-mono text-xs text-[var(--color-ink-dim)]">
-            <div className="flex items-center gap-1.5 text-[var(--color-terminal-green)] px-2.5 py-1 rounded bg-[var(--color-paper-terminal)] border border-[var(--color-rule)]">
-              <Lock className="w-3.5 h-3.5" />
-              <span>TLS 1.3 256-BIT ENCRYPTED</span>
-            </div>
-          </div>
-        </div>
-      </header>
+      
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1 flex flex-col">
