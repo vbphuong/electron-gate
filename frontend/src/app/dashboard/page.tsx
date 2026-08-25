@@ -30,15 +30,15 @@ const ROLE_PANEL_CONFIGS: Record<string, PanelConfig> = {
     ],
     actionsHeading: "Administrator Actions",
     actions: [
-      { label: "Chat", href: "/dashboard/chat", icon: <MessageSquare className="w-4 h-4" />, primary: true },
-      { label: "Order Tracking", href: "/account/orders", icon: <Search className="w-4 h-4 text-[var(--color-terminal-cyan)]" /> },
+      { label: "Orders Hub", href: "/admin/orders", icon: <Search className="w-4 h-4 text-[var(--color-terminal-cyan)]" />, primary: true },
+      { label: "Payments", href: "/admin/payments", icon: <Search className="w-4 h-4 text-[var(--color-terminal-green)]" /> },
+      { label: "Shipments", href: "/admin/shipments", icon: <Search className="w-4 h-4 text-[var(--color-atelier-brass)]" /> },
       { label: "All Documents", href: "/dashboard/documents", icon: <Search className="w-4 h-4" /> },
-      { label: "Upload Docs", href: "/dashboard/upload", icon: <UploadCloud className="w-4 h-4 text-[var(--color-atelier-brass)]" /> },
     ],
   },
   staff: {
-    title: "Document Ingestion & Management",
-    subtitle: "Upload documents, manage text chunking, and review search accuracy",
+    title: "Fulfillment & Document Operations",
+    subtitle: "Process order lifecycles, manage carrier manifests, and review document accuracy",
     tag: "ROLE: STAFF (OPERATIONS)",
     tagColor: "bg-[var(--color-terminal-green)]",
     stats: [
@@ -47,12 +47,12 @@ const ROLE_PANEL_CONFIGS: Record<string, PanelConfig> = {
       { label: "Search Alignment", value: "0.012", sub: "High semantic match", valColor: "text-[var(--color-terminal-green)]" },
       { label: "Top-3 Accuracy", value: "98.4%", sub: "bge-reranker score", valColor: "text-[var(--color-atelier-brass)]" },
     ],
-    actionsHeading: "Document Operations",
+    actionsHeading: "Fulfillment & Operations",
     actions: [
-      { label: "Test Retrieval", href: "/dashboard/chat", icon: <MessageSquare className="w-4 h-4" />, primary: true },
-      { label: "Order Tracking", href: "/account/orders", icon: <Search className="w-4 h-4 text-[var(--color-terminal-cyan)]" /> },
-      { label: "All Documents", href: "/dashboard/documents", icon: <Search className="w-4 h-4" /> },
-      { label: "Upload Docs", href: "/dashboard/upload", icon: <UploadCloud className="w-4 h-4 text-[var(--color-atelier-brass)]" /> },
+      { label: "Orders Hub", href: "/admin/orders", icon: <Search className="w-4 h-4 text-[var(--color-terminal-cyan)]" />, primary: true },
+      { label: "Payments", href: "/admin/payments", icon: <Search className="w-4 h-4 text-[var(--color-terminal-green)]" /> },
+      { label: "Shipments", href: "/admin/shipments", icon: <Search className="w-4 h-4 text-[var(--color-atelier-brass)]" /> },
+      { label: "Test Retrieval", href: "/dashboard/chat", icon: <MessageSquare className="w-4 h-4" /> },
     ],
   },
   user: {

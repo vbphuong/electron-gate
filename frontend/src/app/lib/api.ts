@@ -721,6 +721,7 @@ export interface PaymentRead {
   amount: number;
   payment_method: string;
   payment_status: string;
+  paid_at?: string | null;
   created_at?: string | null;
 }
 
@@ -823,7 +824,8 @@ export async function apiGetCities(
 
 export async function apiCheckout(
   shippingAddressId: string,
-  token: string
+  token: string,
+  paymentMethod?: string
 ): Promise<OrderRead> {
   const res = await fetch(`${BACKEND_URL}/orders/checkout`, {
     method: "POST",
@@ -831,7 +833,10 @@ export async function apiCheckout(
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ shipping_address_id: shippingAddressId }),
+    body: JSON.stringify({
+      shipping_address_id: shippingAddressId,
+      payment_method: paymentMethod || "credit_card",
+    }),
   });
   if (!res.ok) {
     const errorData = await res.json().catch(() => null);
@@ -974,4 +979,232 @@ export async function apiGetOrderPayment(
   }
   return res.json();
 }
+
+// ── Admin & Staff Operations APIs ──────────────────────────────────────────
+
+export interface OrderUpdatePayload {
+  order_status?: string;
+  shipping_fee?: number;
+  discount_amount?: number;
+}
+
+export interface OrderHistoryCreatePayload {
+  address_line: string;
+  recipient_name: string;
+  city_name: string;
+  country_name: string;
+  phone: string;
+}
+
+export interface PaymentCreatePayload {
+  order_id: string;
+  payment_method: string;
+  payment_status?: string;
+  amount: number;
+  paid_at?: string;
+}
+
+export interface PaymentUpdatePayload {
+  payment_method?: string;
+  payment_status?: string;
+  amount?: number;
+  paid_at?: string;
+}
+
+export interface ShipmentCreatePayload {
+  order_id: string;
+  delivery_provider_id: string;
+  tracking_number?: string;
+  status?: string;
+}
+
+export interface ShipmentUpdatePayload {
+  delivery_provider_id?: string;
+  tracking_number?: string;
+  status?: string;
+  delivered_at?: string;
+}
+
+export interface DeliveryProviderRead {
+  provider_id: string;
+  name: string;
+  phone?: string | null;
+  is_active: boolean;
+}
+
+export async function apiUpdateOrder(
+  orderId: string,
+  payload: OrderUpdatePayload,
+  token: string
+): Promise<OrderRead> {
+  const res = await fetch(`${BACKEND_URL}/orders/${orderId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to update order: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiAddOrderHistory(
+  orderId: string,
+  payload: OrderHistoryCreatePayload,
+  token: string
+): Promise<OrderHistoryRead> {
+  const res = await fetch(`${BACKEND_URL}/orders/${orderId}/history`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to append order history: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiListPayments(
+  token: string,
+  options?: { order_id?: string; payment_status?: string }
+): Promise<PaymentRead[]> {
+  const query = new URLSearchParams();
+  if (options?.order_id) query.append("order_id", options.order_id);
+  if (options?.payment_status) query.append("payment_status", options.payment_status);
+
+  const url = `${BACKEND_URL}/payments${query.toString() ? `?${query.toString()}` : ""}`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to list payments: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiCreatePayment(
+  payload: PaymentCreatePayload,
+  token: string
+): Promise<PaymentRead> {
+  const res = await fetch(`${BACKEND_URL}/payments`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to create payment: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiUpdatePayment(
+  paymentId: string,
+  payload: PaymentUpdatePayload,
+  token: string
+): Promise<PaymentRead> {
+  const res = await fetch(`${BACKEND_URL}/payments/${paymentId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to update payment: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiListShipments(
+  token: string,
+  options?: { order_id?: string; status?: string; provider_id?: string }
+): Promise<ShipmentRead[]> {
+  const query = new URLSearchParams();
+  if (options?.order_id) query.append("order_id", options.order_id);
+  if (options?.status) query.append("status", options.status);
+  if (options?.provider_id) query.append("provider_id", options.provider_id);
+
+  const url = `${BACKEND_URL}/shipments${query.toString() ? `?${query.toString()}` : ""}`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to list shipments: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiCreateShipment(
+  payload: ShipmentCreatePayload,
+  token: string
+): Promise<ShipmentRead> {
+  const res = await fetch(`${BACKEND_URL}/shipments`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to create shipment: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiUpdateShipment(
+  shipmentId: string,
+  payload: ShipmentUpdatePayload,
+  token: string
+): Promise<ShipmentRead> {
+  const res = await fetch(`${BACKEND_URL}/shipments/${shipmentId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to update shipment: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function apiGetDeliveryProviders(
+  token: string,
+  isActive?: boolean
+): Promise<DeliveryProviderRead[]> {
+  const query = new URLSearchParams();
+  if (isActive !== undefined) query.append("is_active", String(isActive));
+
+  const url = `${BACKEND_URL}/delivery-providers${query.toString() ? `?${query.toString()}` : ""}`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => null);
+    throw new Error(errorData?.detail || `Failed to fetch delivery providers: ${res.status}`);
+  }
+  return res.json();
+}
+
 

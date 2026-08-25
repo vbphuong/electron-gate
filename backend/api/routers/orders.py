@@ -17,6 +17,7 @@ from api.models import (
     Order,
     OrderHistory,
     OrderItem,
+    Payment,
     User,
 )
 
@@ -80,6 +81,7 @@ class OrderUpdate(BaseModel):
 
 class CheckoutRequest(BaseModel):
     shipping_address_id: UUID
+    payment_method: Optional[str] = "credit_card"
 
 
 class AdminOrderCreate(BaseModel):
@@ -232,6 +234,15 @@ def checkout(
     )
     db.add(history)
 
+    # Create initial pending payment record for the order
+    payment = Payment(
+        order_id=order.order_id,
+        payment_method=body.payment_method or "credit_card",
+        payment_status="pending",
+        amount=order.subtotal + order.shipping_fee - order.discount_amount,
+    )
+    db.add(payment)
+
     # Remove selected items from cart
     for cart_item in selected_items:
         db.delete(cart_item)
@@ -315,6 +326,15 @@ def create_order(
         subtotal += oi.unit_price * oi.quantity
 
     order.subtotal = subtotal
+
+    payment = Payment(
+        order_id=order.order_id,
+        payment_method="direct_gateway",
+        payment_status="pending",
+        amount=order.subtotal + order.shipping_fee - order.discount_amount,
+    )
+    db.add(payment)
+
     db.commit()
     db.refresh(order)
     return OrderRead.model_validate(order)
