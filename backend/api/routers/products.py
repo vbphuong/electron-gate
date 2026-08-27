@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile
 from pydantic import BaseModel, ConfigDict
 
 from api.deps import db_dependency, get_current_user, require_admin_or_staff, supabase_dependency
-from api.models import Product, Category, product_category
+from api.models import Product, Category, ProductImage, product_category
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -213,6 +213,17 @@ def create_product(
         product.categories = categories_list
 
     db.add(product)
+    db.flush()
+
+    if body.image_url:
+        db.add(
+            ProductImage(
+                product_id=product.product_id,
+                image_url=body.image_url,
+                is_primary=True,
+            )
+        )
+
     db.commit()
     db.refresh(product)
     return ProductRead.model_validate(product)
@@ -237,6 +248,25 @@ def update_product(
         product.description = body.description
     if body.image_url is not None:
         product.image_url = body.image_url
+        if body.image_url:
+            existing_img = (
+                db.query(ProductImage)
+                .filter(
+                    ProductImage.product_id == product_id,
+                    ProductImage.image_url == body.image_url,
+                )
+                .first()
+            )
+            if existing_img:
+                existing_img.is_primary = True
+            else:
+                db.add(
+                    ProductImage(
+                        product_id=product_id,
+                        image_url=body.image_url,
+                        is_primary=True,
+                    )
+                )
 
     if body.category_ids is not None:
         categories_list = (

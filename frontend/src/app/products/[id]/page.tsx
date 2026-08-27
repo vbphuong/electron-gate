@@ -85,6 +85,26 @@ export default function ProductDetailPage() {
 
   const isAdmin = user?.role === "Admin";
 
+  // Helper to determine display image for a specific variant or fallback to product cover
+  const getVariantDisplayImage = useCallback(
+    (
+      variant: VariantBrief | undefined,
+      currentProduct: ProductRead | null,
+      images: ProductImageRead[]
+    ): string | null => {
+      if (variant?.image_url) return variant.image_url;
+      if (variant?.variant_id) {
+        const variantGalleryImg = images.find(
+          (img) => img.variant_id === variant.variant_id
+        );
+        if (variantGalleryImg?.image_url) return variantGalleryImg.image_url;
+      }
+      const primaryImg = images.find((img) => img.is_primary)?.image_url;
+      return primaryImg || currentProduct?.image_url || images[0]?.image_url || null;
+    },
+    []
+  );
+
   // Load Product and Gallery Images
   const loadProductData = useCallback(async () => {
     if (!productId) return;
@@ -100,16 +120,18 @@ export default function ProductDetailPage() {
       setProduct(productData);
       setGalleryImages(imagesData);
 
-      // Default main image
-      const primaryImg = imagesData.find((img) => img.is_primary)?.image_url;
-      setSelectedImage(primaryImg || productData.image_url || imagesData[0]?.image_url || null);
+      // Auto-select first active variant if available and sync its image
+      const activeVariant =
+        productData.variants?.find((v) => v.status === "active") ||
+        productData.variants?.[0];
 
-      // Auto-select first active variant if available
-      const activeVariant = productData.variants?.find((v) => v.status === "active");
       if (activeVariant) {
         setSelectedVariantId(activeVariant.variant_id);
-      } else if (productData.variants?.length > 0) {
-        setSelectedVariantId(productData.variants[0].variant_id);
+        const targetImg = getVariantDisplayImage(activeVariant, productData, imagesData);
+        setSelectedImage(targetImg);
+      } else {
+        const primaryImg = imagesData.find((img) => img.is_primary)?.image_url;
+        setSelectedImage(primaryImg || productData.image_url || imagesData[0]?.image_url || null);
       }
     } catch (err) {
       setError(
@@ -120,7 +142,7 @@ export default function ProductDetailPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [productId, token]);
+  }, [productId, token, getVariantDisplayImage]);
 
   useEffect(() => {
     loadProductData();
@@ -150,20 +172,12 @@ export default function ProductDetailPage() {
     return product.variants.find((v) => v.variant_id === selectedVariantId);
   }, [product, selectedVariantId]);
 
-  // Handle variant selection change
+  // Handle variant selection change — synchronously switches active image
   const handleSelectVariant = (variant: VariantBrief) => {
     setSelectedVariantId(variant.variant_id);
-
-    // If variant has an image, switch view to that image
-    if (variant.image_url) {
-      setSelectedImage(variant.image_url);
-    } else {
-      const variantGalleryImg = galleryImages.find(
-        (img) => img.variant_id === variant.variant_id
-      );
-      if (variantGalleryImg) {
-        setSelectedImage(variantGalleryImg.image_url);
-      }
+    const targetImg = getVariantDisplayImage(variant, product, galleryImages);
+    if (targetImg) {
+      setSelectedImage(targetImg);
     }
   };
 
@@ -508,7 +522,15 @@ export default function ProductDetailPage() {
                     {allImages.map((imgUrl, idx) => (
                       <button
                         key={idx}
-                        onClick={() => setSelectedImage(imgUrl)}
+                        onClick={() => {
+                          setSelectedImage(imgUrl);
+                          const matchingVariant = product.variants?.find(
+                            (v) => v.image_url === imgUrl
+                          );
+                          if (matchingVariant && matchingVariant.status === "active") {
+                            setSelectedVariantId(matchingVariant.variant_id);
+                          }
+                        }}
                         className={`w-20 h-20 rounded-lg border overflow-hidden shrink-0 transition-all bg-[var(--color-paper-terminal)] p-1 ${
                           selectedImage === imgUrl
                             ? "border-[var(--color-atelier-brass)] shadow-md ring-1 ring-[var(--color-atelier-brass)]"
@@ -628,24 +650,40 @@ export default function ProductDetailPage() {
                                 type="button"
                                 onClick={() => handleSelectVariant(v)}
                                 disabled={!isActive}
-                                className="w-full text-left"
+                                className="w-full text-left flex items-start gap-2.5"
                               >
-                                <div className="flex items-center justify-between mb-1 pr-6">
-                                  <span className="font-bold text-[var(--color-ink)]">
-                                    {v.model || "Standard Edition"}
-                                  </span>
-                                  {isSelected && (
-                                    <Check className="w-3.5 h-3.5 text-[var(--color-atelier-brass)] shrink-0" />
-                                  )}
-                                </div>
+                                {v.image_url ? (
+                                  <div className="w-11 h-11 rounded border border-[var(--color-rule)] overflow-hidden shrink-0 bg-[var(--color-paper-terminal)] p-0.5">
+                                    <img
+                                      src={v.image_url}
+                                      alt={v.model || "variant"}
+                                      className="w-full h-full object-cover rounded"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="w-11 h-11 rounded border border-[var(--color-rule)] flex items-center justify-center shrink-0 bg-[var(--color-paper-terminal)] text-[var(--color-ink-dim)]">
+                                    <Cpu className="w-4 h-4 opacity-40" />
+                                  </div>
+                                )}
 
-                                <div className="text-[10px] text-[var(--color-ink-dim)] space-x-2">
-                                  {v.color && <span>{v.color}</span>}
-                                  {v.storage && <span>· {v.storage}</span>}
-                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between mb-0.5 pr-6">
+                                    <span className="font-bold text-[var(--color-ink)] truncate">
+                                      {v.model || "Standard Edition"}
+                                    </span>
+                                    {isSelected && (
+                                      <Check className="w-3.5 h-3.5 text-[var(--color-atelier-brass)] shrink-0 ml-1" />
+                                    )}
+                                  </div>
 
-                                <div className="mt-2 text-xs font-bold text-[var(--color-terminal-cyan)]">
-                                  ${Number(v.price).toFixed(2)}
+                                  <div className="text-[10px] text-[var(--color-ink-dim)] space-x-2 truncate">
+                                    {v.color && <span>{v.color}</span>}
+                                    {v.storage && <span>· {v.storage}</span>}
+                                  </div>
+
+                                  <div className="mt-1 text-xs font-bold text-[var(--color-terminal-cyan)]">
+                                    ${Number(v.price).toFixed(2)}
+                                  </div>
                                 </div>
                               </button>
 

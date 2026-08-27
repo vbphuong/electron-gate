@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict
 
 from api.deps import db_dependency, get_current_user, require_admin_or_staff
-from api.models import Product, ProductVariant
+from api.models import Product, ProductVariant, ProductImage
 
 router = APIRouter(
     prefix="/products/{product_id}/variants",
@@ -121,6 +121,18 @@ def create_variant(
     data = payload.model_dump()
     variant = ProductVariant(product_id=product_id, **data)
     db.add(variant)
+    db.flush()
+
+    if variant.image_url:
+        db.add(
+            ProductImage(
+                product_id=product_id,
+                variant_id=variant.variant_id,
+                image_url=variant.image_url,
+                is_primary=False,
+            )
+        )
+
     db.commit()
     db.refresh(variant)
     return VariantRead.model_validate(variant)
@@ -161,6 +173,26 @@ def update_variant(
         variant.status = payload.status
     if payload.image_url is not None:
         variant.image_url = payload.image_url
+        if payload.image_url:
+            existing_img = (
+                db.query(ProductImage)
+                .filter(
+                    ProductImage.product_id == product_id,
+                    ProductImage.image_url == payload.image_url,
+                )
+                .first()
+            )
+            if existing_img:
+                existing_img.variant_id = variant.variant_id
+            else:
+                db.add(
+                    ProductImage(
+                        product_id=product_id,
+                        variant_id=variant.variant_id,
+                        image_url=payload.image_url,
+                        is_primary=False,
+                    )
+                )
 
     db.commit()
     db.refresh(variant)
