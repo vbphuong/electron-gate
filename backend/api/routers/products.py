@@ -2,12 +2,13 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID, uuid4
 import pathlib
+import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
 from pydantic import BaseModel, ConfigDict
 
 from api.deps import db_dependency, get_current_user, require_admin_or_staff, supabase_dependency
-from api.models import Product, Category, product_category
+from api.models import Product, Category, ProductImage, product_category
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -139,7 +140,7 @@ async def upload_product_image(
 ):
     """
     Direct image upload endpoint (Admin/Staff only).
-    Saves to storage and uploads to Supabase Storage, returning the public image URL.
+    Uploads directly to Supabase Storage bucket, returning the public image URL.
     """
     if file.content_type and not file.content_type.startswith("image/"):
         ext = pathlib.Path(file.filename or "").suffix.lower()
@@ -149,39 +150,39 @@ async def upload_product_image(
                 detail="Uploaded file must be a valid image (JPG, PNG, WEBP, GIF, SVG)",
             )
 
-    storage_dir = pathlib.Path("storage/products")
-    storage_dir.mkdir(parents=True, exist_ok=True)
-
     safe_original_name = pathlib.Path(file.filename or "image.png").name
-    safe_filename = f"{uuid4().hex[:12]}_{safe_original_name}"
-    local_path = storage_dir / safe_filename
+    # Sanitize to alphanumeric + safe punctuation for S3/Supabase key compatibility
+    clean_name = re.sub(r"[^a-zA-Z0-9_.-]", "_", safe_original_name)
+    safe_filename = f"{uuid4().hex[:12]}_{clean_name}"
 
     try:
         contents = await file.read()
-        with open(local_path, "wb") as f:
-            f.write(contents)
     except Exception as exc:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to save image locally: {exc}",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Could not read upload file: {exc}",
         )
 
-    image_url = None
+    bucket_name = "electron-gate"
+    upload_path = f"products/{safe_filename}"
     try:
-        bucket_name = "electron-gate"
-        upload_path = f"products/{safe_filename}"
         supabase_client.storage.from_(bucket_name).upload(
             upload_path,
             contents,
             {"content-type": file.content_type or "image/png"},
         )
         image_url = supabase_client.storage.from_(bucket_name).get_public_url(upload_path)
-    except Exception:
-        # Fall back cleanly if Supabase bucket is unconfigured
-        pass
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload image to Supabase bucket '{bucket_name}': {exc}",
+        )
 
     if not image_url:
-        image_url = f"/storage/products/{safe_filename}"
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve public URL from Supabase Storage",
+        )
 
     return ImageUploadResponse(image_url=image_url, file_name=safe_original_name)
 
@@ -212,6 +213,17 @@ def create_product(
         product.categories = categories_list
 
     db.add(product)
+    db.flush()
+
+    if body.image_url:
+        db.add(
+            ProductImage(
+                product_id=product.product_id,
+                image_url=body.image_url,
+                is_primary=True,
+            )
+        )
+
     db.commit()
     db.refresh(product)
     return ProductRead.model_validate(product)
@@ -236,6 +248,25 @@ def update_product(
         product.description = body.description
     if body.image_url is not None:
         product.image_url = body.image_url
+        if body.image_url:
+            existing_img = (
+                db.query(ProductImage)
+                .filter(
+                    ProductImage.product_id == product_id,
+                    ProductImage.image_url == body.image_url,
+                )
+                .first()
+            )
+            if existing_img:
+                existing_img.is_primary = True
+            else:
+                db.add(
+                    ProductImage(
+                        product_id=product_id,
+                        image_url=body.image_url,
+                        is_primary=True,
+                    )
+                )
 
     if body.category_ids is not None:
         categories_list = (
