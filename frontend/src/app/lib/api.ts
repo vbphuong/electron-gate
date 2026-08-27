@@ -895,6 +895,26 @@ export interface CityRead {
   country_name?: string | null;
 }
 
+export interface CountryCreate {
+  country_name: string;
+}
+
+export interface CountryUpdate {
+  country_name?: string;
+}
+
+export interface CityCreate {
+  city_name: string;
+  postal_code?: string | null;
+  country_id: string;
+}
+
+export interface CityUpdate {
+  city_name?: string;
+  postal_code?: string | null;
+  country_id?: string;
+}
+
 export interface OrderItemBrief {
   order_item_id: string;
   variant_id: string;
@@ -1007,11 +1027,77 @@ export async function apiDeleteAddress(
   );
 }
 
-export async function apiGetCountries(token: string): Promise<CountryRead[]> {
+export async function apiGetCountries(
+  token: string,
+  search?: string
+): Promise<CountryRead[]> {
+  const query = search ? `?search=${encodeURIComponent(search)}` : "";
   return fetchJson<CountryRead[]>(
-    "/countries",
+    `/countries${query}`,
     { headers: { Authorization: `Bearer ${token}` } },
     "Failed to fetch countries"
+  );
+}
+
+export async function apiGetCountry(
+  countryId: string,
+  token: string
+): Promise<CountryRead> {
+  return fetchJson<CountryRead>(
+    `/countries/${countryId}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch country"
+  );
+}
+
+export async function apiCreateCountry(
+  data: CountryCreate,
+  token: string
+): Promise<CountryRead> {
+  return fetchJson<CountryRead>(
+    "/countries",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    },
+    "Failed to create country"
+  );
+}
+
+export async function apiUpdateCountry(
+  countryId: string,
+  data: CountryUpdate,
+  token: string
+): Promise<CountryRead> {
+  return fetchJson<CountryRead>(
+    `/countries/${countryId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    },
+    "Failed to update country"
+  );
+}
+
+export async function apiDeleteCountry(
+  countryId: string,
+  token: string
+): Promise<void> {
+  return fetchJson<void>(
+    `/countries/${countryId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to delete country"
   );
 }
 
@@ -1023,6 +1109,84 @@ export async function apiGetCities(
     `/countries/${countryId}/cities`,
     { headers: { Authorization: `Bearer ${token}` } },
     "Failed to fetch cities"
+  );
+}
+
+export async function apiListCities(
+  token: string,
+  params?: { countryId?: string; search?: string }
+): Promise<CityRead[]> {
+  const queryParams = new URLSearchParams();
+  if (params?.countryId) queryParams.set("country_id", params.countryId);
+  if (params?.search) queryParams.set("search", params.search);
+  const qStr = queryParams.toString() ? `?${queryParams.toString()}` : "";
+
+  return fetchJson<CityRead[]>(
+    `/cities${qStr}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch cities"
+  );
+}
+
+export async function apiGetCity(
+  cityId: string,
+  token: string
+): Promise<CityRead> {
+  return fetchJson<CityRead>(
+    `/cities/${cityId}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch city"
+  );
+}
+
+export async function apiCreateCity(
+  data: CityCreate,
+  token: string
+): Promise<CityRead> {
+  return fetchJson<CityRead>(
+    "/cities",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    },
+    "Failed to create city"
+  );
+}
+
+export async function apiUpdateCity(
+  cityId: string,
+  data: CityUpdate,
+  token: string
+): Promise<CityRead> {
+  return fetchJson<CityRead>(
+    `/cities/${cityId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    },
+    "Failed to update city"
+  );
+}
+
+export async function apiDeleteCity(
+  cityId: string,
+  token: string
+): Promise<void> {
+  return fetchJson<void>(
+    `/cities/${cityId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to delete city"
   );
 }
 
@@ -1217,6 +1381,18 @@ export interface DeliveryProviderRead {
   is_active: boolean;
 }
 
+export interface DeliveryProviderCreate {
+  name: string;
+  phone?: string | null;
+  is_active?: boolean;
+}
+
+export interface DeliveryProviderUpdate {
+  name?: string;
+  phone?: string | null;
+  is_active?: boolean;
+}
+
 export async function apiUpdateOrder(
   orderId: string,
   payload: OrderUpdatePayload,
@@ -1377,6 +1553,68 @@ export async function apiGetDeliveryProviders(
   );
 }
 
+export async function apiGetDeliveryProvider(
+  providerId: string,
+  token: string
+): Promise<DeliveryProviderRead> {
+  return fetchJson<DeliveryProviderRead>(
+    `/delivery-providers/${providerId}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch delivery provider"
+  );
+}
+
+export async function apiCreateDeliveryProvider(
+  data: DeliveryProviderCreate,
+  token: string
+): Promise<DeliveryProviderRead> {
+  return fetchJson<DeliveryProviderRead>(
+    "/delivery-providers",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    },
+    "Failed to create delivery provider"
+  );
+}
+
+export async function apiUpdateDeliveryProvider(
+  providerId: string,
+  data: DeliveryProviderUpdate,
+  token: string
+): Promise<DeliveryProviderRead> {
+  return fetchJson<DeliveryProviderRead>(
+    `/delivery-providers/${providerId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    },
+    "Failed to update delivery provider"
+  );
+}
+
+export async function apiDeleteDeliveryProvider(
+  providerId: string,
+  token: string
+): Promise<void> {
+  return fetchJson<void>(
+    `/delivery-providers/${providerId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to delete delivery provider"
+  );
+}
+
 // ── People & Role Management APIs ──────────────────────────────────────────
 
 export interface RoleRead {
@@ -1528,4 +1766,397 @@ export async function apiDeleteUser(
     "Failed to delete user"
   );
 }
+
+// ── Inventory Management APIs (Section 11) ──────────────────────────────────
+
+export interface InventoryLocationRead {
+  location_id: string;
+  name: string;
+  type: string;
+  address?: string | null;
+}
+
+export interface InventoryLocationCreatePayload {
+  name: string;
+  type: string;
+  address?: string | null;
+}
+
+export interface InventoryLocationUpdatePayload {
+  name?: string;
+  type?: string;
+  address?: string | null;
+}
+
+export async function apiListInventoryLocations(
+  token: string,
+  locationType?: string
+): Promise<InventoryLocationRead[]> {
+  const query = new URLSearchParams();
+  if (locationType && locationType !== "all") query.append("type", locationType);
+  const path = `/inventory/locations${query.toString() ? `?${query.toString()}` : ""}`;
+  return fetchJson<InventoryLocationRead[]>(
+    path,
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch inventory locations"
+  );
+}
+
+export async function apiGetInventoryLocation(
+  locationId: string,
+  token: string
+): Promise<InventoryLocationRead> {
+  return fetchJson<InventoryLocationRead>(
+    `/inventory/locations/${locationId}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch location details"
+  );
+}
+
+export async function apiCreateInventoryLocation(
+  payload: InventoryLocationCreatePayload,
+  token: string
+): Promise<InventoryLocationRead> {
+  return fetchJson<InventoryLocationRead>(
+    "/inventory/locations",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    },
+    "Failed to create inventory location"
+  );
+}
+
+export async function apiUpdateInventoryLocation(
+  locationId: string,
+  payload: InventoryLocationUpdatePayload,
+  token: string
+): Promise<InventoryLocationRead> {
+  return fetchJson<InventoryLocationRead>(
+    `/inventory/locations/${locationId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    },
+    "Failed to update inventory location"
+  );
+}
+
+export async function apiDeleteInventoryLocation(
+  locationId: string,
+  token: string
+): Promise<void> {
+  return fetchJson<void>(
+    `/inventory/locations/${locationId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to delete inventory location"
+  );
+}
+
+export interface InventoryStockRead {
+  variant_id: string;
+  location_id: string;
+  qty_available: number;
+  qty_reserved: number;
+  location_name?: string | null;
+  product_name?: string | null;
+  variant_model?: string | null;
+  variant_color?: string | null;
+  variant_storage?: string | null;
+}
+
+export interface InventoryStockCreatePayload {
+  variant_id: string;
+  location_id: string;
+  qty_available?: number;
+  qty_reserved?: number;
+}
+
+export interface InventoryStockUpdatePayload {
+  qty_available?: number;
+  qty_reserved?: number;
+}
+
+export async function apiListInventoryStock(
+  token: string,
+  options?: { locationId?: string; variantId?: string; lowStock?: number }
+): Promise<InventoryStockRead[]> {
+  const query = new URLSearchParams();
+  if (options?.locationId) query.append("location_id", options.locationId);
+  if (options?.variantId) query.append("variant_id", options.variantId);
+  if (options?.lowStock !== undefined && options.lowStock !== null) {
+    query.append("low_stock", String(options.lowStock));
+  }
+  const path = `/inventory/stock${query.toString() ? `?${query.toString()}` : ""}`;
+  return fetchJson<InventoryStockRead[]>(
+    path,
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch inventory stock records"
+  );
+}
+
+export async function apiGetInventoryStock(
+  variantId: string,
+  locationId: string,
+  token: string
+): Promise<InventoryStockRead> {
+  return fetchJson<InventoryStockRead>(
+    `/inventory/stock/${variantId}/${locationId}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch stock item"
+  );
+}
+
+export async function apiCreateInventoryStock(
+  payload: InventoryStockCreatePayload,
+  token: string
+): Promise<InventoryStockRead> {
+  return fetchJson<InventoryStockRead>(
+    "/inventory/stock",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    },
+    "Failed to initialize inventory stock"
+  );
+}
+
+export async function apiUpdateInventoryStock(
+  variantId: string,
+  locationId: string,
+  payload: InventoryStockUpdatePayload,
+  token: string
+): Promise<InventoryStockRead> {
+  return fetchJson<InventoryStockRead>(
+    `/inventory/stock/${variantId}/${locationId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    },
+    "Failed to update inventory stock"
+  );
+}
+
+export async function apiDeleteInventoryStock(
+  variantId: string,
+  locationId: string,
+  token: string
+): Promise<void> {
+  return fetchJson<void>(
+    `/inventory/stock/${variantId}/${locationId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to delete inventory stock"
+  );
+}
+
+export interface InventoryMovementRead {
+  movement_id: string;
+  variant_id: string;
+  location_id: string;
+  movement_type: "in" | "out" | "transfer" | "adjustment" | "return" | string;
+  quantity: number;
+  location_name?: string | null;
+  product_name?: string | null;
+  variant_model?: string | null;
+  variant_color?: string | null;
+}
+
+export interface InventoryMovementCreatePayload {
+  variant_id: string;
+  location_id: string;
+  movement_type: "in" | "out" | "transfer" | "adjustment" | "return" | string;
+  quantity: number;
+}
+
+export async function apiListInventoryMovements(
+  token: string,
+  options?: { locationId?: string; variantId?: string; movementType?: string }
+): Promise<InventoryMovementRead[]> {
+  const query = new URLSearchParams();
+  if (options?.locationId) query.append("location_id", options.locationId);
+  if (options?.variantId) query.append("variant_id", options.variantId);
+  if (options?.movementType && options.movementType !== "all") {
+    query.append("movement_type", options.movementType);
+  }
+  const path = `/inventory/movements${query.toString() ? `?${query.toString()}` : ""}`;
+  return fetchJson<InventoryMovementRead[]>(
+    path,
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch inventory movements"
+  );
+}
+
+export async function apiGetInventoryMovement(
+  movementId: string,
+  token: string
+): Promise<InventoryMovementRead> {
+  return fetchJson<InventoryMovementRead>(
+    `/inventory/movements/${movementId}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch movement details"
+  );
+}
+
+export async function apiCreateInventoryMovement(
+  payload: InventoryMovementCreatePayload,
+  token: string
+): Promise<InventoryMovementRead> {
+  return fetchJson<InventoryMovementRead>(
+    "/inventory/movements",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    },
+    "Failed to record inventory movement"
+  );
+}
+
+export async function apiDeleteInventoryMovement(
+  movementId: string,
+  token: string
+): Promise<void> {
+  return fetchJson<void>(
+    `/inventory/movements/${movementId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to delete inventory movement"
+  );
+}
+
+export interface StockReservationRead {
+  reservation_id: string;
+  variant_id: string;
+  location_id: string;
+  cart_id: string;
+  quantity: number;
+  expires_at: string;
+  status: "active" | "released" | "expired" | string;
+  location_name?: string | null;
+  product_name?: string | null;
+  variant_model?: string | null;
+  variant_color?: string | null;
+}
+
+export interface StockReservationCreatePayload {
+  variant_id: string;
+  location_id: string;
+  cart_id: string;
+  quantity: number;
+  expires_at: string;
+  status?: string;
+}
+
+export interface StockReservationUpdatePayload {
+  quantity?: number;
+  expires_at?: string;
+  status?: string;
+}
+
+export async function apiListStockReservations(
+  token: string,
+  options?: { locationId?: string; variantId?: string; cartId?: string; status?: string }
+): Promise<StockReservationRead[]> {
+  const query = new URLSearchParams();
+  if (options?.locationId) query.append("location_id", options.locationId);
+  if (options?.variantId) query.append("variant_id", options.variantId);
+  if (options?.cartId) query.append("cart_id", options.cartId);
+  if (options?.status && options.status !== "all") query.append("status", options.status);
+  const path = `/inventory/reservations${query.toString() ? `?${query.toString()}` : ""}`;
+  return fetchJson<StockReservationRead[]>(
+    path,
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch stock reservations"
+  );
+}
+
+export async function apiGetStockReservation(
+  reservationId: string,
+  token: string
+): Promise<StockReservationRead> {
+  return fetchJson<StockReservationRead>(
+    `/inventory/reservations/${reservationId}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+    "Failed to fetch stock reservation"
+  );
+}
+
+export async function apiCreateStockReservation(
+  payload: StockReservationCreatePayload,
+  token: string
+): Promise<StockReservationRead> {
+  return fetchJson<StockReservationRead>(
+    "/inventory/reservations",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    },
+    "Failed to create stock reservation"
+  );
+}
+
+export async function apiUpdateStockReservation(
+  reservationId: string,
+  payload: StockReservationUpdatePayload,
+  token: string
+): Promise<StockReservationRead> {
+  return fetchJson<StockReservationRead>(
+    `/inventory/reservations/${reservationId}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    },
+    "Failed to update stock reservation"
+  );
+}
+
+export async function apiDeleteStockReservation(
+  reservationId: string,
+  token: string
+): Promise<void> {
+  return fetchJson<void>(
+    `/inventory/reservations/${reservationId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    "Failed to delete stock reservation"
+  );
+}
+
 

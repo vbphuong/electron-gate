@@ -15,6 +15,9 @@ import {
   ShoppingCart,
   CreditCard,
   Truck,
+  Warehouse,
+  Globe,
+  Send,
   LogOut,
   ShoppingBag,
   MessageSquare,
@@ -26,8 +29,9 @@ export function Navbar() {
   const pathname = usePathname();
   const { user, logout, isLoading } = useAuth();
   
-  const isAdmin = user?.role === "admin" || user?.role === "superadmin";
-  const isStaff = user?.role === "staff";
+  const userRole = (user?.role || "").toLowerCase();
+  const isAdmin = userRole === "admin";
+  const isStaff = userRole === "staff";
   const canAccessAdmin = isAdmin || isStaff;
 
   const isAdminRoute = pathname.startsWith("/admin");
@@ -117,7 +121,7 @@ export function Navbar() {
                 <Link href="/login" className="px-3 py-1.5 text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] transition-colors">
                   Login
                 </Link>
-                <Link href="/signup" className="px-3 py-1.5 bg-[var(--color-ink)] text-[var(--color-paper-terminal)] font-semibold rounded hover:bg-[var(--color-atelier-brass)] transition-colors">
+                <Link href="/signup" className="px-3 py-1.5 bg-[var(--color-atelier-brass)] text-[var(--color-paper-terminal)] font-semibold rounded hover:bg-[var(--color-atelier-amber)] transition-colors shadow-xs">
                   Sign Up
                 </Link>
               </div>
@@ -152,6 +156,15 @@ export function Navbar() {
             </Link>
             <Link href="/admin/shipments" className={`px-2.5 py-1 rounded transition-all flex items-center gap-1.5 ${pathname === '/admin/shipments' ? 'bg-[var(--color-paper-card)] border border-[var(--color-atelier-brass)] text-[var(--color-atelier-brass)]' : 'text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] hover:bg-[var(--color-paper-hover)] border border-transparent'}`}>
               <Truck className="w-3.5 h-3.5" /> Shipments
+            </Link>
+            <Link href="/admin/inventory" className={`px-2.5 py-1 rounded transition-all flex items-center gap-1.5 ${pathname.startsWith('/admin/inventory') ? 'bg-[var(--color-paper-card)] border border-[var(--color-atelier-brass)] text-[var(--color-atelier-brass)]' : 'text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] hover:bg-[var(--color-paper-hover)] border border-transparent'}`}>
+              <Warehouse className="w-3.5 h-3.5" /> Inventory
+            </Link>
+            <Link href="/admin/locations" className={`px-2.5 py-1 rounded transition-all flex items-center gap-1.5 ${pathname === '/admin/locations' ? 'bg-[var(--color-paper-card)] border border-[var(--color-atelier-brass)] text-[var(--color-atelier-brass)]' : 'text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] hover:bg-[var(--color-paper-hover)] border border-transparent'}`}>
+              <Globe className="w-3.5 h-3.5" /> Regions
+            </Link>
+            <Link href="/admin/delivery-providers" className={`px-2.5 py-1 rounded transition-all flex items-center gap-1.5 ${pathname === '/admin/delivery-providers' ? 'bg-[var(--color-paper-card)] border border-[var(--color-atelier-brass)] text-[var(--color-atelier-brass)]' : 'text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] hover:bg-[var(--color-paper-hover)] border border-transparent'}`}>
+              <Send className="w-3.5 h-3.5" /> Carriers
             </Link>
           </nav>
         </div>
