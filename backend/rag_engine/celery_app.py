@@ -17,6 +17,6 @@ celery_app.conf.update(
     enable_utc=False,
     task_default_queue="default",
     task_routes={
-        "rag_engine.ingestion.celery_tasks.process_document_task": {"queue": "ingestion_queue"},
+        "rag_engine.ingestion.celery_tasks.*": {"queue": "ingestion_queue"},
     },
 )

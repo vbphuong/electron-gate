@@ -1,16 +1,8 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, status
 from pydantic import BaseModel, ConfigDict
-<<<<<<< Updated upstream
-from supabase import Client
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from api.models import Document as DocumentModel, Chunk as ChunkModel
-from api.deps import db_dependency, user_dependency, supabase_dependency, llm_dependency, embedding_dependency
-from typing import Optional
-=======
 from api.models import Document as DocumentModel
 from api.deps import db_dependency, user_dependency, supabase_dependency
 from typing import Optional, List, Dict, Any
->>>>>>> Stashed changes
 from uuid import UUID, uuid4
 import pathlib
 import os
@@ -38,9 +30,6 @@ class DocumentResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-<<<<<<< Updated upstream
-@router.post('/upload', response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
-=======
 
 class TaskStatusResponse(BaseModel):
     task_id: str
@@ -175,7 +164,6 @@ async def delete_document(
     response_model_exclude_none=True,
     status_code=status.HTTP_201_CREATED,
 )
->>>>>>> Stashed changes
 async def upload_document(
     db: db_dependency,
     current_user: user_dependency,
