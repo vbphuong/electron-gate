@@ -39,13 +39,14 @@ begin
   from chunks c
   where
     c.fts @@ query_tsquery
-    -- Optional document_id filter: pass {"document_id": "<uuid>"} in the filter param
+    -- Optional document filter: supports single {"document_id": "<uuid>"} or multiple {"document_ids": ["<uuid1>", "<uuid2>"]}
     and (
-      filter->>'document_id' is null
-      or c.metadata->>'document_id' = filter->>'document_id'
+      (filter->'document_ids' is null and filter->>'document_id' is null)
+      or (filter->'document_ids' is not null and (filter->'document_ids' ? (c.metadata->>'document_id') or (c.document_id is not null and filter->'document_ids' ? c.document_id::text)))
+      or (filter->>'document_id' is not null and (c.metadata->>'document_id' = filter->>'document_id' or c.document_id::text = filter->>'document_id'))
     )
     -- Generic JSONB containment for any other filters
-    and c.metadata @> (filter - 'document_id')
+    and c.metadata @> (filter - 'document_id' - 'document_ids')
   order by similarity desc
   limit match_count;
 end;

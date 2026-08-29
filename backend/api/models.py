@@ -105,7 +105,7 @@ class Conversation(Base):
     document_id = Column(
         UUID(as_uuid=True),
         ForeignKey("documents.document_id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
     )
 
     created_by = Column(
@@ -235,6 +235,11 @@ class Product(Base):
         back_populates="product",
         cascade="all, delete-orphan",
     )
+    images = relationship(
+        "ProductImage",
+        back_populates="product",
+        cascade="all, delete-orphan",
+    )
 
 
 class Category(Base):
@@ -272,6 +277,10 @@ class ProductVariant(Base):
         back_populates="variant",
         cascade="all, delete-orphan",
     )
+    images = relationship(
+        "ProductImage",
+        back_populates="variant",
+    )
     cart_items = relationship("CartItem", back_populates="variant")
     order_items = relationship("OrderItem", back_populates="variant")
     inventory_stocks = relationship(
@@ -281,6 +290,29 @@ class ProductVariant(Base):
     )
     inventory_movements = relationship("InventoryMovement", back_populates="variant")
     stock_reservations = relationship("StockReservation", back_populates="variant")
+
+
+class ProductImage(Base):
+    __tablename__ = "product_images"
+
+    image_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    product_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("products.product_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    variant_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("product_variants.variant_id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    image_url = Column(Text, nullable=False)
+    is_primary = Column(Boolean, nullable=False, default=False)
+    embedding = Column(Vector(512), nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+
+    product = relationship("Product", back_populates="images")
+    variant = relationship("ProductVariant", back_populates="images")
 
 
 class ProductSpec(Base):

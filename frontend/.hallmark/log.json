@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-08-21T09:28:30.000Z",
+  "scope": "app",
+  "genre": "editorial-modern-minimal",
+  "theme": "atelier-terminal-rag-high-oomph",
+  "macrostructure": "workshop-plates",
+  "critique": "P5 H5 E5 S5 R5 V5",
+  "files": [
+    "design.md",
+    "src/app/globals.css",
+    "src/app/page.tsx",
+    "src/app/layout.tsx",
+    "src/app/login/page.tsx",
+    "src/app/signup/page.tsx",
+    "src/app/dashboard/page.tsx",
+    "src/app/components/ProtectedRoute.tsx"
+  ]
+}
