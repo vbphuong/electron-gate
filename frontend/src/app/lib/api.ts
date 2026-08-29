@@ -1918,6 +1918,11 @@ export async function apiGetInventoryStock(
   );
 }
 
+export async function apiGetMe(token: string): Promise<UserInfo> {
+  const res = await fetch(`${BACKEND_URL}/auth/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  
 export async function apiCreateInventoryStock(
   payload: InventoryStockCreatePayload,
   token: string
@@ -1935,6 +1940,7 @@ export async function apiCreateInventoryStock(
     "Failed to initialize inventory stock"
   );
 }
+
 
 export async function apiUpdateInventoryStock(
   variantId: string,
