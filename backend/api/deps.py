@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Optional
 from sqlalchemy.orm import Session 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -66,6 +66,24 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_bearer)]):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate user")
 
 user_dependency = Annotated[dict, Depends(get_current_user)]
+
+oauth2_bearer_optional = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
+
+async def get_optional_user(token: Annotated[Optional[str], Depends(oauth2_bearer_optional)] = None) -> Optional[dict]:
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        user_id: int = payload.get("id")
+        role: str = payload.get("role")
+        if username is None or user_id is None:
+            return None
+        return {'username': username, 'id': user_id, 'role': role}
+    except JWTError:
+        return None
+
+optional_user_dependency = Annotated[Optional[dict], Depends(get_optional_user)]
 
 
 async def require_admin(current_user: dict = Depends(get_current_user)) -> dict:

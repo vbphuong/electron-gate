@@ -281,19 +281,14 @@ export default function OrderTrackingDetailPage() {
             <section className="atelier-plate p-6 sm:p-8 rounded-lg border border-[var(--color-rule)] bg-[var(--color-paper-card)] shadow-sm relative overflow-hidden">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
                 <div className="space-y-2">
-                  <div className="flex flex-wrap items-center gap-2.5">
-                    <span className="font-mono text-[10px] text-[var(--color-atelier-brass)] uppercase tracking-wider font-semibold">
-                      OFFICIAL DISPATCH RECORD
-                    </span>
-                    <span className="text-[var(--color-rule)]">/</span>
-                    <span className="font-mono text-xs text-[var(--color-ink-dim)]">
-                      REGISTRY: {order.order_id.slice(0, 8).toUpperCase()}
+                  <div className="flex items-center gap-3">
+                    <h1 className="text-2xl sm:text-3xl font-fraunces font-extrabold text-[var(--color-ink)] tracking-tight">
+                      {order.order_number}
+                    </h1>
+                    <span className="px-2 py-0.5 rounded bg-[var(--color-paper-sub)] border border-[var(--color-rule)] font-mono text-[10px] text-[var(--color-ink-dim)]">
+                      {order.order_id.slice(0, 8).toUpperCase()}
                     </span>
                   </div>
-
-                  <h1 className="text-2xl sm:text-3xl font-fraunces font-extrabold text-[var(--color-ink)] tracking-tight flex items-center gap-3">
-                    <span>{order.order_number}</span>
-                  </h1>
 
                   <p className="font-mono text-xs text-[var(--color-ink-muted)] flex items-center gap-2">
                     <Clock className="w-3.5 h-3.5 text-[var(--color-ink-dim)]" />

@@ -293,19 +293,14 @@ export default function AddressManagementPage() {
         <section className="atelier-plate p-6 sm:p-8 rounded-lg border border-[var(--color-rule)] bg-[var(--color-paper-card)] shadow-sm relative overflow-hidden mb-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
             <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-[10px] text-[var(--color-terminal-green)] uppercase tracking-wider font-semibold">
-                  SECTION 6.1 · ADDRESS DISPATCH REGISTRY
-                </span>
-                <span className="text-[var(--color-rule)]">/</span>
-                <span className="font-mono text-xs text-[var(--color-ink-dim)]">
-                  {addresses.length} ACTIVE NODES
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl sm:text-3xl font-fraunces font-extrabold text-[var(--color-ink)] tracking-tight">
+                  Delivery Destination Nodes
+                </h1>
+                <span className="px-2 py-0.5 rounded bg-[var(--color-paper-sub)] border border-[var(--color-rule)] font-mono text-[10px] text-[var(--color-ink-dim)]">
+                  {addresses.length} {addresses.length === 1 ? "NODE" : "NODES"}
                 </span>
               </div>
-
-              <h1 className="text-2xl sm:text-3xl font-fraunces font-extrabold text-[var(--color-ink)] tracking-tight">
-                Delivery Destination Nodes
-              </h1>
 
               <p className="text-xs sm:text-sm text-[var(--color-ink-muted)] font-sans max-w-xl leading-relaxed">
                 Configure physical shipping destinations for encrypted carrier dispatch. Default nodes are automatically applied during checkout.

@@ -1,211 +1,500 @@
 "use client";
 
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import ProtectedRoute from "@/app/components/ProtectedRoute";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
-  UploadCloud,
-  Sparkles,
-  MessageSquare,
-  Search,
-  LogOut,
-  Users,
-  Layers,
+  apiGetOrders,
+  apiGetMyCart,
+  apiGetMyAddresses,
+  type OrderListItem,
+  type CartRead,
+  type AddressRead,
+} from "@/app/lib/api";
+import {
   Package,
-  CreditCard,
-  Truck,
-  ShieldCheck,
-  ShoppingBag,
+  ShoppingCart,
   MapPin,
-  FileText,
+  MessageSquare,
+  Sparkles,
+  ArrowRight,
+  ShieldCheck,
+  CheckCircle2,
+  Clock,
+  Truck,
+  CreditCard,
   Boxes,
-  Tag,
+  Compass,
+  FileText,
+  Plus,
+  RefreshCw,
 } from "lucide-react";
 
-interface PanelConfig {
-  title: string;
-  subtitle: string;
-  tag: string;
-  tagColor: string;
-  stats: Array<{ label: string; value: string; sub: string; valColor?: string }>;
-  actionsHeading: string;
-  actions: Array<{ label: string; href: string; icon: React.ReactNode; primary?: boolean }>;
-}
-
-const ROLE_PANEL_CONFIGS: Record<string, PanelConfig> = {
-  admin: {
-    title: "Administrator Enclave Command",
-    subtitle: "Manage catalog products, user identities, security roles, and fulfillment pipelines",
-    tag: "ROLE: ADMIN (FULL ACCESS)",
-    tagColor: "bg-[var(--color-restricted-red)]",
-    stats: [
-      { label: "Total Vectors", value: "842,910", sub: "↑ +12.4k this week" },
-      { label: "Hardware Catalog", value: "Active", sub: "SKUs & variants ready", valColor: "text-[var(--color-atelier-brass)]" },
-      { label: "Identity & Roles", value: "Configured", sub: "Enclave access verified" },
-      { label: "Avg Search Time", value: "38.4ms", sub: "Within sub-50ms target", valColor: "text-[var(--color-terminal-cyan)]" },
-    ],
-    actionsHeading: "Administrative Governance",
-    actions: [
-      { label: "Products Hub", href: "/admin/products", icon: <Boxes className="w-4 h-4 text-[var(--color-atelier-brass)]" />, primary: true },
-      { label: "Categories", href: "/admin/categories", icon: <Tag className="w-4 h-4 text-[var(--color-terminal-cyan)]" /> },
-      { label: "User Accounts", href: "/admin/users", icon: <Users className="w-4 h-4 text-[var(--color-terminal-green)]" /> },
-      { label: "Security Roles", href: "/admin/roles", icon: <Layers className="w-4 h-4 text-[var(--color-enclave-violet)]" /> },
-      { label: "Orders Hub", href: "/admin/orders", icon: <Package className="w-4 h-4 text-[var(--color-atelier-brass)]" /> },
-      { label: "Payments", href: "/admin/payments", icon: <CreditCard className="w-4 h-4 text-[var(--color-terminal-green)]" /> },
-      { label: "Shipments", href: "/admin/shipments", icon: <Truck className="w-4 h-4 text-[var(--color-atelier-amber)]" /> },
-      { label: "Knowledge Docs", href: "/dashboard/documents", icon: <FileText className="w-4 h-4 text-[var(--color-ink-muted)]" /> },
-    ],
-  },
-  staff: {
-    title: "Fulfillment & Document Operations",
-    subtitle: "Process order lifecycles, manage carrier manifests, and review document accuracy",
-    tag: "ROLE: STAFF (OPERATIONS)",
-    tagColor: "bg-[var(--color-terminal-green)]",
-    stats: [
-      { label: "Queued Docs", value: "24", sub: "4 PDFs processing" },
-      { label: "Processed Chunks", value: "4,812", sub: "512 tokens / chunk" },
-      { label: "Search Alignment", value: "0.012", sub: "High semantic match", valColor: "text-[var(--color-terminal-green)]" },
-      { label: "Top-3 Accuracy", value: "98.4%", sub: "bge-reranker score", valColor: "text-[var(--color-atelier-brass)]" },
-    ],
-    actionsHeading: "Fulfillment & Operations",
-    actions: [
-      { label: "Products Catalog", href: "/admin/products", icon: <Boxes className="w-4 h-4 text-[var(--color-atelier-brass)]" />, primary: true },
-      { label: "Categories", href: "/admin/categories", icon: <Tag className="w-4 h-4 text-[var(--color-terminal-cyan)]" /> },
-      { label: "Orders Hub", href: "/admin/orders", icon: <Package className="w-4 h-4 text-[var(--color-terminal-cyan)]" /> },
-      { label: "Payments", href: "/admin/payments", icon: <CreditCard className="w-4 h-4 text-[var(--color-terminal-green)]" /> },
-      { label: "Shipments", href: "/admin/shipments", icon: <Truck className="w-4 h-4 text-[var(--color-atelier-brass)]" /> },
-      { label: "Test Retrieval", href: "/dashboard/chat", icon: <MessageSquare className="w-4 h-4" /> },
-    ],
-  },
-  user: {
-    title: "Search & Query Workspace",
-    subtitle: "Search across documents, explore answers, and track orders & addresses",
-    tag: "ROLE: USER (STANDARD ACCESS)",
-    tagColor: "bg-[var(--color-terminal-cyan)]",
-    stats: [
-      { label: "Total Searches", value: "34", sub: "All searches completed" },
-      { label: "Saved Chunks", value: "8 Items", sub: "Saved for quick review" },
-      { label: "Average Search Time", value: "18.2ms", sub: "Fast hybrid lookup", valColor: "text-[var(--color-terminal-green)]" },
-      { label: "Cache Hit Rate", value: "92.6%", sub: "Cached search results", valColor: "text-[var(--color-atelier-brass)]" },
-    ],
-    actionsHeading: "Search & Customer Actions",
-    actions: [
-      { label: "Ask Assistant", href: "/dashboard/chat", icon: <MessageSquare className="w-4 h-4" />, primary: true },
-      { label: "Browse Catalog", href: "/products", icon: <ShoppingBag className="w-4 h-4 text-[var(--color-terminal-cyan)]" /> },
-      { label: "My Orders & Tracking", href: "/account/orders", icon: <Package className="w-4 h-4 text-[var(--color-atelier-brass)]" /> },
-      { label: "Delivery Addresses", href: "/account/addresses", icon: <MapPin className="w-4 h-4 text-[var(--color-terminal-green)]" /> },
-      { label: "Browse Documents", href: "/dashboard/documents", icon: <FileText className="w-4 h-4 text-[var(--color-ink-muted)]" /> },
-    ],
-  },
-};
-
-function RoleStatsPanel({ role }: { role: string }) {
-  const config = ROLE_PANEL_CONFIGS[role.toLowerCase()] || ROLE_PANEL_CONFIGS.user;
-
-  return (
-    <div className="atelier-panel">
-      <div className="atelier-panel-header">
-        <div className="atelier-panel-title-group">
-          <div>
-            <h2>{config.title}</h2>
-            <p>{config.subtitle}</p>
-          </div>
-        </div>
-        <div className="atelier-terminal-status-tag">
-          <span className={`w-2 h-2 rounded-full ${config.tagColor}`} />
-          <span>{config.tag}</span>
-        </div>
-      </div>
-
-      <div className="atelier-stats-grid">
-        {config.stats.map((stat, idx) => (
-          <div key={stat.label} className="atelier-stat-card">
-            <div className="atelier-stat-header">
-              <span>{stat.label}</span>
-              <span className="text-[var(--color-atelier-brass)]">[ 0{idx + 1} ]</span>
-            </div>
-            <div className={`atelier-stat-val ${stat.valColor || ""}`}>{stat.value}</div>
-            <div className="atelier-stat-sub">
-              <span>{stat.sub}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="font-mono text-xs text-[var(--color-ink-dim)] uppercase tracking-wider font-semibold">
-        {config.actionsHeading}
-      </div>
-      <div className="atelier-actions-grid">
-        {config.actions.map((act) => (
-          <Link
-            key={act.label}
-            href={act.href}
-            className={`atelier-action-btn ${act.primary ? "border-[var(--color-atelier-brass)]/50 text-[var(--color-atelier-brass)] font-semibold shadow-sm" : ""}`}
-          >
-            {act.icon}
-            <span>{act.label}</span>
-          </Link>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function DashboardContent() {
-  const { user, logout } = useAuth();
+function UserDashboardContent() {
+  const { user, token } = useAuth();
   const router = useRouter();
 
-  if (!user) return null;
+  const [orders, setOrders] = useState<OrderListItem[]>([]);
+  const [cart, setCart] = useState<CartRead | null>(null);
+  const [addresses, setAddresses] = useState<AddressRead[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [refreshKey, setRefreshKey] = useState<number>(0);
 
-  const roleLower = (user.role || "user").toLowerCase();
-  const isAdmin = roleLower === "admin";
-  const isStaff = roleLower === "staff";
+  const isAdmin = user?.role === "Admin";
+  const isStaff = user?.role === "Staff";
+  const isOperator = isAdmin || isStaff;
 
-  const handleLogout = () => {
-    logout();
-    router.push("/login");
+  useEffect(() => {
+    if (!token) return;
+    let isMounted = true;
+    setIsLoading(true);
+
+    Promise.allSettled([
+      apiGetOrders(token, user?.user_id ? { userId: user.user_id } : undefined),
+      apiGetMyCart(token),
+      apiGetMyAddresses(token),
+    ]).then(([ordersRes, cartRes, addressesRes]) => {
+      if (!isMounted) return;
+      if (ordersRes.status === "fulfilled" && Array.isArray(ordersRes.value)) {
+        setOrders(ordersRes.value);
+      }
+      if (cartRes.status === "fulfilled") {
+        setCart(cartRes.value);
+      }
+      if (addressesRes.status === "fulfilled" && Array.isArray(addressesRes.value)) {
+        setAddresses(addressesRes.value);
+      }
+      setIsLoading(false);
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [token, user?.user_id, refreshKey]);
+
+  const latestOrder = orders.length > 0 ? orders[0] : null;
+  const cartItemsCount = cart?.items?.length || 0;
+  const cartTotal =
+    cart?.items?.reduce((acc, item) => acc + Number(item.unit_price) * item.quantity, 0) || 0;
+
+  // Order status progression calculation
+  const getOrderStep = (status: string) => {
+    const s = status.toLowerCase();
+    if (s === "delivered") return 4;
+    if (s === "shipped" || s === "in_transit") return 3;
+    if (s === "paid" || s === "processing") return 2;
+    return 1; // pending / created
   };
 
   return (
-    <div className="atelier-dashboard">
-      {/* Background drafting grid & filament */}
-      <div className="atelier-canvas-grid" />
-      <div className="atelier-filament-glow" />
+    <div className="min-h-screen bg-[var(--color-paper)] text-[var(--color-ink)] flex flex-col selection:bg-[var(--color-atelier-brass)] selection:text-[var(--color-paper)]">
+      <div className="atelier-canvas-grid fixed inset-0 pointer-events-none opacity-35" />
 
-      {/* Top Apparatus Bar */}
-      
-
-      {/* Main Intelligence Enclave Workspace */}
-      <main className="atelier-dash-main relative z-10">
-        <div className="atelier-welcome-banner">
-          <div>
-            <h1>
-              Welcome,{" "}
-              <span className="text-[var(--color-atelier-brass)]">
-                {user.full_name || user.email.split("@")[0]}
-              </span>
-            </h1>
-            <p>
-              Signed in with <strong className="text-[var(--color-ink)] uppercase font-mono">{user.role}</strong> permissions.
-            </p>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1 flex flex-col relative z-10">
+        {/* Operator Quick Access Banner (for Admin/Staff) */}
+        {isOperator && (
+          <div className="mb-6 p-4 rounded-lg border border-[var(--color-terminal-cyan)]/40 bg-[var(--color-paper-card)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded bg-[var(--color-terminal-cyan)]/10 text-[var(--color-terminal-cyan)]">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="font-mono text-xs font-bold text-[var(--color-ink)] flex items-center gap-2">
+                  <span>Operator Privileges Active</span>
+                  <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-[var(--color-terminal-cyan)]/15 text-[var(--color-terminal-cyan)]">
+                    {user?.role}
+                  </span>
+                </div>
+                <div className="text-xs text-[var(--color-ink-muted)]">
+                  You have full system access to all 25 FastAPI domain routers, inventory nodes, and ledgers.
+                </div>
+              </div>
+            </div>
+            <Link
+              href="/admin"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded bg-[var(--color-terminal-cyan)] text-white font-mono text-xs font-bold hover:bg-[var(--color-terminal-cyan)]/80 transition-colors self-start sm:self-auto"
+            >
+              <span>Open Operations Command Center</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
-          <div className="atelier-terminal-status-tag">
-            <span className="w-2 h-2 rounded-full bg-[var(--color-terminal-green)] animate-pulse" />
-            <span>SESSION ACTIVE // AVERAGE SEARCH &lt; 40MS</span>
+        )}
+
+        {/* User Hub Welcome Header */}
+        <section className="mb-8">
+          <div className="atelier-plate relative p-6 sm:p-8 rounded-lg overflow-hidden border border-[var(--color-rule)] bg-[var(--color-paper-sub)]">
+            <div className="atelier-filament-glow" />
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 relative z-10">
+              <div>
+                <div className="font-mono text-xs text-[var(--color-atelier-brass)] uppercase tracking-wider mb-2 font-semibold">
+                  MEMBER COMMAND HUB // {user?.email}
+                </div>
+                <h1 className="text-3xl sm:text-4xl font-fraunces font-extrabold tracking-tight text-[var(--color-ink)] mb-2">
+                  Welcome back, {user?.full_name || "Hardware Enthusiast"}
+                </h1>
+                <p className="text-sm text-[var(--color-ink-muted)] font-sans max-w-2xl leading-relaxed">
+                  Track physical shipments, manage verified delivery locations, review active shopping reservations, and consult the neural hardware enclave.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setRefreshKey((prev) => prev + 1)}
+                  className="p-2.5 rounded bg-[var(--color-paper-card)] border border-[var(--color-rule)] text-[var(--color-ink-dim)] hover:text-[var(--color-ink)] transition-colors"
+                  title="Refresh dashboard metrics"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+                </button>
+                <Link
+                  href="/products"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded bg-[var(--color-atelier-brass)] hover:bg-[var(--color-atelier-amber)] text-white font-mono text-xs font-bold transition-all shadow"
+                >
+                  <Compass className="w-4 h-4" />
+                  <span>Browse Store</span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Core 3-Column Usability Bento Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* Column 1 & 2: Active Orders & Shipment Tracking */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Primary Order Plate */}
+            <div className="bg-[var(--color-paper-sub)] border border-[var(--color-rule)] rounded-lg p-6">
+              <div className="flex items-center justify-between pb-4 mb-6 border-b border-[var(--color-rule)]">
+                <div className="flex items-center gap-2.5">
+                  <Package className="w-5 h-5 text-[var(--color-atelier-brass)]" />
+                  <h2 className="font-fraunces text-lg font-bold text-[var(--color-ink)]">
+                    Active Order &amp; Fulfillment
+                  </h2>
+                </div>
+                <Link
+                  href="/account/orders"
+                  className="font-mono text-xs text-[var(--color-atelier-brass)] hover:underline flex items-center gap-1"
+                >
+                  <span>All Orders ({orders.length})</span>
+                  <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
+
+              {latestOrder ? (
+                <div className="space-y-6">
+                  {/* Order Meta Header */}
+                  <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded bg-[var(--color-paper-card)] border border-[var(--color-rule)] font-mono text-xs">
+                    <div>
+                      <div className="text-[10px] text-[var(--color-ink-dim)] uppercase">Order Reference</div>
+                      <div className="font-bold text-[var(--color-ink)]">
+                        {latestOrder.order_number || `#${latestOrder.order_id.slice(0, 8).toUpperCase()}`}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-[var(--color-ink-dim)] uppercase">Total Settled</div>
+                      <div className="font-bold text-[var(--color-atelier-brass)] tabular-nums">
+                        ${(Number(latestOrder.subtotal || 0) + Number(latestOrder.shipping_fee || 0) - Number(latestOrder.discount_amount || 0)).toFixed(2)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-[var(--color-ink-dim)] uppercase">Hardware Units</div>
+                      <div className="text-[var(--color-ink)] font-semibold tabular-nums">
+                        {latestOrder.item_count} Items Included
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-[var(--color-ink-dim)] uppercase">Placed At</div>
+                      <div className="text-[var(--color-ink-muted)]">
+                        {latestOrder.created_at ? new Date(latestOrder.created_at).toLocaleDateString() : "Recent"}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-[var(--color-terminal-green)]/15 text-[var(--color-terminal-green)] border border-[var(--color-terminal-green)]/30">
+                        {latestOrder.order_status}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 4-Stage Lifecycle Stepper */}
+                  <div>
+                    <div className="font-mono text-[11px] text-[var(--color-ink-dim)] uppercase tracking-wider mb-3">
+                      Dispatch Pipeline Status
+                    </div>
+                    <div className="grid grid-cols-4 gap-2 relative">
+                      {[
+                        { step: 1, label: "Created", icon: Clock },
+                        { step: 2, label: "Payment Confirmed", icon: CreditCard },
+                        { step: 3, label: "In Transit", icon: Truck },
+                        { step: 4, label: "Delivered", icon: CheckCircle2 },
+                      ].map((item) => {
+                        const currentStep = getOrderStep(latestOrder.order_status);
+                        const isDone = currentStep >= item.step;
+                        const isCurrent = currentStep === item.step;
+                        const Icon = item.icon;
+
+                        return (
+                          <div key={item.step} className="flex flex-col items-center text-center">
+                            <div
+                              className={`w-9 h-9 rounded-full flex items-center justify-center border transition-all ${
+                                isDone
+                                  ? "bg-[var(--color-atelier-brass)] border-[var(--color-atelier-brass)] text-white"
+                                  : "bg-[var(--color-paper-card)] border-[var(--color-rule)] text-[var(--color-ink-dim)]"
+                              }`}
+                            >
+                              <Icon className="w-4 h-4" />
+                            </div>
+                            <span
+                              className={`font-mono text-[11px] mt-2 font-medium ${
+                                isCurrent
+                                  ? "text-[var(--color-atelier-brass)] font-bold"
+                                  : isDone
+                                  ? "text-[var(--color-ink)]"
+                                  : "text-[var(--color-ink-dim)]"
+                              }`}
+                            >
+                              {item.label}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex items-center justify-end">
+                    <Link
+                      href={`/account/orders/${latestOrder.order_id}`}
+                      className="inline-flex items-center gap-1.5 text-xs font-mono text-[var(--color-atelier-brass)] hover:underline"
+                    >
+                      <span>Inspect Complete Waybill &amp; Receipt</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-8 text-center rounded bg-[var(--color-paper-card)] border border-[var(--color-rule)]">
+                  <Package className="w-8 h-8 text-[var(--color-ink-dim)] mx-auto mb-2" />
+                  <p className="font-fraunces text-base text-[var(--color-ink)] mb-1">
+                    No orders placed yet
+                  </p>
+                  <p className="font-sans text-xs text-[var(--color-ink-muted)] max-w-sm mx-auto mb-4">
+                    Your acquired precision electronics and reservation waybills will appear here with live tracking.
+                  </p>
+                  <Link
+                    href="/products"
+                    className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded bg-[var(--color-atelier-brass)] text-white font-mono text-xs font-bold"
+                  >
+                    <span>Browse Hardware Catalog</span>
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {/* Neural Knowledge & Consultation Plate */}
+            <div className="bg-[var(--color-paper-sub)] border border-[var(--color-rule)] rounded-lg p-6">
+              <div className="flex items-center justify-between pb-4 mb-4 border-b border-[var(--color-rule)]">
+                <div className="flex items-center gap-2.5">
+                  <Sparkles className="w-5 h-5 text-[var(--color-terminal-cyan)]" />
+                  <h2 className="font-fraunces text-lg font-bold text-[var(--color-ink)]">
+                    Hardware Advisor &amp; Knowledge Base
+                  </h2>
+                </div>
+                <Link
+                  href="/dashboard/chat"
+                  className="font-mono text-xs text-[var(--color-terminal-cyan)] hover:underline flex items-center gap-1"
+                >
+                  <span>Full Research Lab</span>
+                  <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
+              <p className="font-sans text-xs text-[var(--color-ink-muted)] mb-4">
+                Have questions regarding PCB actuation, sound acoustics, or DAC pinouts? Ask our RAG intelligence engine grounded on real datasheets.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {[
+                  "Which mechanical switch has the lowest debounce latency?",
+                  "Explain Gasket mount vs Top mount acoustic differences",
+                  "Check impedance range for custom headphone amps",
+                  "What is the return window for custom electronics?",
+                ].map((q, i) => (
+                  <Link
+                    key={i}
+                    href={`/dashboard/chat?query=${encodeURIComponent(q)}`}
+                    className="p-3 rounded bg-[var(--color-paper-card)] hover:bg-[var(--color-paper-hover)] border border-[var(--color-rule)] text-left font-mono text-xs text-[var(--color-ink-muted)] hover:text-[var(--color-atelier-brass)] transition-colors flex items-start gap-2 group"
+                  >
+                    <span className="text-[var(--color-terminal-green)]">❯</span>
+                    <span className="leading-snug">{q}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Column 3: Cart Preview, Addresses, & Quick Tools */}
+          <div className="space-y-6">
+            {/* Active Cart & Checkout Plate */}
+            <div className="bg-[var(--color-paper-sub)] border border-[var(--color-rule)] rounded-lg p-6">
+              <div className="flex items-center justify-between pb-4 mb-4 border-b border-[var(--color-rule)]">
+                <div className="flex items-center gap-2">
+                  <ShoppingCart className="w-4 h-4 text-[var(--color-atelier-brass)]" />
+                  <h3 className="font-fraunces text-base font-bold text-[var(--color-ink)]">
+                    Active Cart
+                  </h3>
+                </div>
+                <span className="font-mono text-xs text-[var(--color-ink-dim)]">
+                  {cartItemsCount} {cartItemsCount === 1 ? "item" : "items"}
+                </span>
+              </div>
+
+              {cartItemsCount > 0 ? (
+                <div className="space-y-4 font-mono text-xs">
+                  <div className="space-y-2">
+                    {cart?.items?.slice(0, 3).map((ci, idx) => (
+                      <div
+                        key={ci.variant_id || idx}
+                        className="p-2.5 rounded bg-[var(--color-paper-card)] border border-[var(--color-rule)] flex items-center justify-between"
+                      >
+                        <div className="truncate max-w-[160px]">
+                          <div className="text-[var(--color-ink)] font-semibold truncate">
+                            {ci.product_name || ci.variant_model || "Hardware SKU"}
+                          </div>
+                          <div className="text-[10px] text-[var(--color-ink-dim)]">
+                            Qty: {ci.quantity} {ci.variant_color ? `· ${ci.variant_color}` : ""}
+                          </div>
+                        </div>
+                        <div className="font-bold text-[var(--color-atelier-brass)] tabular-nums">
+                          ${(Number(ci.unit_price) * ci.quantity).toFixed(2)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pt-3 border-t border-[var(--color-rule)] flex items-center justify-between">
+                    <span className="text-[var(--color-ink-dim)]">Subtotal:</span>
+                    <span className="font-bold text-base text-[var(--color-ink)] tabular-nums">
+                      ${cartTotal.toFixed(2)}
+                    </span>
+                  </div>
+
+                  <Link
+                    href="/checkout"
+                    className="w-full py-2.5 rounded bg-[var(--color-atelier-brass)] hover:bg-[var(--color-atelier-amber)] text-white font-mono text-xs font-bold flex items-center justify-center gap-2 transition-all shadow"
+                  >
+                    <CreditCard className="w-3.5 h-3.5" />
+                    <span>Proceed to Checkout</span>
+                  </Link>
+                </div>
+              ) : (
+                <div className="p-6 text-center rounded bg-[var(--color-paper-card)] border border-[var(--color-rule)]">
+                  <ShoppingCart className="w-6 h-6 text-[var(--color-ink-dim)] mx-auto mb-2" />
+                  <p className="font-sans text-xs text-[var(--color-ink-muted)] mb-3">
+                    Your shopping cart is currently empty.
+                  </p>
+                  <Link
+                    href="/products"
+                    className="font-mono text-xs text-[var(--color-atelier-brass)] hover:underline"
+                  >
+                    Explore Hardware Catalog →
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {/* Saved Delivery Addresses Plate */}
+            <div className="bg-[var(--color-paper-sub)] border border-[var(--color-rule)] rounded-lg p-6">
+              <div className="flex items-center justify-between pb-4 mb-4 border-b border-[var(--color-rule)]">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-[var(--color-terminal-green)]" />
+                  <h3 className="font-fraunces text-base font-bold text-[var(--color-ink)]">
+                    Delivery Addresses
+                  </h3>
+                </div>
+                <Link
+                  href="/account/addresses"
+                  className="font-mono text-xs text-[var(--color-terminal-green)] hover:underline"
+                >
+                  Manage ({addresses.length})
+                </Link>
+              </div>
+
+              {addresses.length > 0 ? (
+                <div className="space-y-2">
+                  {addresses.slice(0, 2).map((addr) => (
+                    <div
+                      key={addr.address_id}
+                      className="p-3 rounded bg-[var(--color-paper-card)] border border-[var(--color-rule)] text-xs font-sans"
+                    >
+                      <div className="font-semibold text-[var(--color-ink)] flex items-center justify-between">
+                        <span>{user?.full_name || "Primary Shipping Location"}</span>
+                        {addr.is_default && (
+                          <span className="font-mono text-[9px] px-1.5 py-0.5 rounded bg-[var(--color-terminal-green)]/15 text-[var(--color-terminal-green)]">
+                            DEFAULT
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[var(--color-ink-muted)] mt-1">
+                        {addr.address_line}, {addr.city_name || "Local Area"}
+                      </div>
+                      <div className="font-mono text-[11px] text-[var(--color-ink-dim)] mt-0.5">
+                        {addr.country_name || "Region"} {addr.postal_code ? `· Postal: ${addr.postal_code}` : ""}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 text-center rounded bg-[var(--color-paper-card)] border border-[var(--color-rule)]">
+                  <p className="font-sans text-xs text-[var(--color-ink-muted)] mb-3">
+                    No shipping address registered.
+                  </p>
+                  <Link
+                    href="/account/addresses"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-[var(--color-paper-hover)] border border-[var(--color-rule)] font-mono text-xs text-[var(--color-ink)] hover:border-[var(--color-terminal-green)] transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add New Address</span>
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {/* Ingested Documents & Manuals */}
+            <div className="bg-[var(--color-paper-sub)] border border-[var(--color-rule)] rounded-lg p-6">
+              <div className="flex items-center justify-between pb-3 mb-3 border-b border-[var(--color-rule)]">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-[var(--color-ink-muted)]" />
+                  <h3 className="font-fraunces text-base font-bold text-[var(--color-ink)]">
+                    Datasheets &amp; Guides
+                  </h3>
+                </div>
+                <Link
+                  href="/dashboard/documents"
+                  className="font-mono text-xs text-[var(--color-atelier-brass)] hover:underline"
+                >
+                  View Library
+                </Link>
+              </div>
+              <p className="font-sans text-xs text-[var(--color-ink-muted)] mb-3">
+                Browse verified technical manuals, schematic PDFs, and component warranty specifications.
+              </p>
+              <Link
+                href="/dashboard/documents"
+                className="w-full py-2 rounded bg-[var(--color-paper-card)] hover:bg-[var(--color-paper-hover)] border border-[var(--color-rule)] text-center font-mono text-xs text-[var(--color-ink)] block transition-colors"
+              >
+                Access Technical Library →
+              </Link>
+            </div>
           </div>
         </div>
-
-        <RoleStatsPanel role={roleLower} />
       </main>
     </div>
   );
 }
 
-export default function DashboardPage() {
+export default function UserDashboardPage() {
   return (
     <ProtectedRoute>
-      <DashboardContent />
+      <UserDashboardContent />
     </ProtectedRoute>
   );
 }

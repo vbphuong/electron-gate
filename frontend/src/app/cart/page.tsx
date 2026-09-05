@@ -317,7 +317,7 @@ export default function CartPage() {
               Your Hardware Cart is Empty
             </h2>
             <p className="text-xs text-[var(--color-ink-muted)] font-mono max-w-sm mb-6 leading-relaxed">
-              Explore our verified Apple devices, hardware modules, and cryptographic enclaves to populate your cart.
+              Explore our artisanal mechanical keyboards, audiophile DACs, and neural compute enclaves to populate your cart.
             </p>
             <Link
               href="/products"
@@ -494,7 +494,7 @@ export default function CartPage() {
                       Order Summary
                     </h3>
                     <span className="font-mono text-[10px] text-[var(--color-terminal-cyan)] uppercase tracking-wider">
-                      FLOW 3.1 CART
+                      HARDWARE ALLOCATION
                     </span>
                   </div>
 
@@ -583,7 +583,7 @@ export default function CartPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 font-mono text-[11px] text-[var(--color-ink-dim)]">
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-terminal-green)]" />
-            <span>ELECTRON GATE CHECKOUT SYSTEM · FLOW 3</span>
+            <span>ELECTRON GATE PROVISIONING SYSTEM</span>
           </div>
           <div>EST. 2026 // ATELIER × MONOSPACE TERMINAL ENCLAVE</div>
         </div>

@@ -265,6 +265,8 @@ export interface ProductListItem {
   image_url?: string | null;
   categories: CategoryBrief[];
   variant_count: number;
+  min_price?: number | string | null;
+  max_price?: number | string | null;
 }
 
 export interface VariantBrief {
