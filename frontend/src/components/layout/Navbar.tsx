@@ -26,6 +26,7 @@ import {
   FileText,
   LayoutDashboard,
   Camera,
+  ShieldCheck,
 } from "lucide-react";
 
 export function Navbar() {
