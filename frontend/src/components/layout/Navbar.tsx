@@ -4,9 +4,11 @@
 
 "use client";
 
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/app/context/AuthContext";
+import { VisualSearchModal } from "@/components/layout/VisualSearchModal";
 import {
   Users,
   Layers,
@@ -22,12 +24,14 @@ import {
   ShoppingBag,
   MessageSquare,
   FileText,
-  LayoutDashboard
+  LayoutDashboard,
+  Camera,
 } from "lucide-react";
 
 export function Navbar() {
   const pathname = usePathname();
   const { user, logout, isLoading } = useAuth();
+  const [isVisualSearchOpen, setIsVisualSearchOpen] = useState(false);
   
   const userRole = (user?.role || "").toLowerCase();
   const isAdmin = userRole === "admin";
@@ -93,15 +97,26 @@ export function Navbar() {
           )}
         </nav>
 
-        {/* Auth / Cart Actions */}
+        {/* Auth / Cart / Visual Search Actions */}
         <div className="flex items-center gap-2">
+          {/* Visual Search Button */}
+          <button
+            type="button"
+            onClick={() => setIsVisualSearchOpen(true)}
+            className="px-2.5 py-1.5 rounded-lg bg-[var(--color-terminal-cyan)]/10 hover:bg-[var(--color-terminal-cyan)]/20 border border-[var(--color-terminal-cyan)]/40 hover:border-[var(--color-terminal-cyan)] text-[var(--color-terminal-cyan)] transition-all flex items-center gap-1.5 text-xs font-mono font-semibold"
+            title="Chụp ảnh hoặc tải ảnh lên để tìm kiếm sản phẩm (Visual Search)"
+          >
+            <Camera className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline">Visual Search</span>
+          </button>
+
           <Link href="/cart" className="relative p-1.5 rounded text-[var(--color-ink-muted)] hover:text-[var(--color-atelier-brass)] hover:bg-[var(--color-paper-sub)] transition-colors" aria-label="View Cart">
             <ShoppingCart className="w-4 h-4" />
           </Link>
 
           {!isLoading && (
             user ? (
-              <div className="flex items-center gap-3 ml-2 border-l border-[var(--color-rule)] pl-3">
+              <div className="flex items-center gap-3 ml-1 sm:ml-2 border-l border-[var(--color-rule)] pl-2 sm:pl-3">
                 <div className="hidden sm:flex flex-col text-right font-mono text-xs">
                   <span className="text-[var(--color-ink)] font-semibold truncate max-w-[120px]">{user.email}</span>
                   <span className="text-[var(--color-atelier-brass)] uppercase tracking-wider text-[9px]">
@@ -117,7 +132,7 @@ export function Navbar() {
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2 ml-2 font-mono text-xs">
+              <div className="flex items-center gap-2 ml-1 sm:ml-2 font-mono text-xs">
                 <Link href="/login" className="px-3 py-1.5 text-[var(--color-ink-muted)] hover:text-[var(--color-ink)] transition-colors">
                   Login
                 </Link>
@@ -169,6 +184,12 @@ export function Navbar() {
           </nav>
         </div>
       )}
+
+      {/* Visual Search Modal */}
+      <VisualSearchModal
+        isOpen={isVisualSearchOpen}
+        onClose={() => setIsVisualSearchOpen(false)}
+      />
     </div>
   );
 }

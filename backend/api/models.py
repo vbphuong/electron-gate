@@ -308,7 +308,7 @@ class ProductImage(Base):
     )
     image_url = Column(Text, nullable=False)
     is_primary = Column(Boolean, nullable=False, default=False)
-    embedding = Column(Vector(512), nullable=True)
+    embedding = Column(Vector(768), nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
 
     product = relationship("Product", back_populates="images")

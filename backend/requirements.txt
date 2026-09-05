@@ -61,3 +61,10 @@ python-dateutil==2.9.0.post0
 PyYAML==6.0.3
 click==8.1.7
 setuptools>=69.0.0
+
+# Visual Search — Object Detection & Image Embedding
+ultralytics>=8.2.0
+transformers>=4.40.0
+torch>=2.2.0
+torchvision>=0.17.0
+sentencepiece>=0.2.0

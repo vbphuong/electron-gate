@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -8,6 +9,21 @@ from sqlalchemy import desc
 
 from api.deps import db_dependency, get_current_user, require_admin_or_staff
 from api.models import Category, Product, ProductImage, ProductVariant
+from rag_engine.visual_search.celery_tasks import embed_product_image_task
+
+logger = logging.getLogger(__name__)
+
+
+def _dispatch_embed(image_id: str, image_url: str) -> None:
+    """Fire-and-forget: send embed task to Celery. Logs a warning if Redis is unavailable."""
+    try:
+        embed_product_image_task.delay(image_id, image_url)
+    except Exception as exc:
+        logger.warning(
+            f"Could not dispatch embed task for image {image_id} "
+            f"(Redis may be offline): {exc}"
+        )
+
 
 router = APIRouter(tags=["product-images"])
 
@@ -175,6 +191,12 @@ def create_product_image(
     db.add(img)
     db.commit()
     db.refresh(img)
+
+    # Auto-embed if this is a variant image and no embedding was provided manually.
+    # Variant images are the primary search target for per-variant visual search.
+    if body.variant_id is not None and body.embedding is None:
+        _dispatch_embed(str(img.image_id), img.image_url)
+
     return _image_to_read(img)
 
 
@@ -217,13 +239,24 @@ def update_product_image(
     elif body.is_primary is False:
         img.is_primary = False
 
+    url_changed = body.image_url is not None and body.image_url != img.image_url
+    embedding_provided_manually = body.embedding is not None
+
     if body.image_url is not None:
         img.image_url = body.image_url
+        # Clear stale embedding when URL changes (will be re-computed below)
+        if url_changed and not embedding_provided_manually:
+            img.embedding = None
     if body.embedding is not None:
         img.embedding = body.embedding
 
     db.commit()
     db.refresh(img)
+
+    # Re-embed if this is a variant image and its URL changed (no manual embedding supplied).
+    if img.variant_id is not None and url_changed and not embedding_provided_manually:
+        _dispatch_embed(str(img.image_id), img.image_url)
+
     return _image_to_read(img)
 
 
