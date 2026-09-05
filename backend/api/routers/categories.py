@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import asc
 
-from api.deps import db_dependency, get_current_user, require_admin_or_staff
+from api.deps import db_dependency, get_current_user, get_optional_user, require_admin_or_staff
 from api.models import Category
 
 
@@ -33,7 +33,7 @@ router = APIRouter(prefix="/categories", tags=["categories"])
 @router.get("", response_model=list[CategoryRead])
 def list_categories(
     db: db_dependency,
-    current_user: dict = Depends(get_current_user),
+    current_user: Optional[dict] = Depends(get_optional_user),
 ):
     categories = db.query(Category).order_by(asc(Category.name)).all()
     return categories
@@ -43,7 +43,7 @@ def list_categories(
 def get_category(
     category_id: UUID,
     db: db_dependency,
-    current_user: dict = Depends(get_current_user),
+    current_user: Optional[dict] = Depends(get_optional_user),
 ):
     category = db.query(Category).filter(Category.category_id == category_id).first()
     if not category:

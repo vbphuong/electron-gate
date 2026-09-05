@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Geist, JetBrains_Mono } from "next/font/google";
 import { AuthProvider } from "@/app/context/AuthContext";
 import { Navbar } from "@/components/layout/Navbar";
+import { AmbientChatbot } from "@/components/chat/AmbientChatbot";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -43,6 +44,7 @@ export default function RootLayout({
         <AuthProvider>
           <Navbar />
           {children}
+          <AmbientChatbot />
         </AuthProvider>
       </body>
     </html>

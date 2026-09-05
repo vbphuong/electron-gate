@@ -66,4 +66,19 @@ pnpm-debug.log*
 
 graphify-out/
 storage/
-uiux-docs
+uiux-docs/
+
+benchmark.py
+eval_dataset.json
+settings.local.json
+hooks.json
+*.pid
+
+*.yml
+
+.claude/
+.codex/
+.serena/
+.impeccable/
+PROJECT_SUMMARY.md
+

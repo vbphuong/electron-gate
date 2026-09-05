@@ -30,6 +30,7 @@ import {
   LogOut,
   Plus,
   ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 
 export default function ProductsPage() {
@@ -344,10 +345,6 @@ export default function ProductsPage() {
             <div className="atelier-filament-glow" />
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 relative z-10">
               <div className="max-w-2xl">
-                <div className="atelier-terminal-status-tag mb-3">
-                  <span className="w-2 h-2 rounded-full bg-[var(--color-terminal-green)] animate-pulse" />
-                  <span>REGISTRY // HARDWARE &amp; NEURAL MODULES</span>
-                </div>
                 <h1 className="text-3xl sm:text-4xl font-fraunces font-extrabold tracking-tight text-[var(--color-ink)] mb-2">
                   System Architecture Catalog
                 </h1>
@@ -581,9 +578,32 @@ export default function ProductsPage() {
                     </h2>
                   </Link>
 
-                  <p className="text-xs text-[var(--color-ink-muted)] font-sans line-clamp-2 leading-relaxed mb-4">
+                  <p className="text-xs text-[var(--color-ink-muted)] font-sans line-clamp-2 leading-relaxed mb-3">
                     {item.description || "High-precision architecture node with vector integration capabilities."}
                   </p>
+
+                  {/* Price Tag */}
+                  <div className="mb-3 flex items-baseline gap-1.5 font-mono">
+                    {item.min_price != null ? (
+                      <>
+                        <span className="text-[10px] text-[var(--color-ink-dim)] uppercase">
+                          {item.min_price === item.max_price ? "Price" : "From"}
+                        </span>
+                        <span className="text-sm font-bold text-[var(--color-atelier-brass)] tabular-nums">
+                          ${Number(item.min_price).toFixed(2)}
+                        </span>
+                        {item.max_price != null && item.max_price !== item.min_price && (
+                          <span className="text-[11px] text-[var(--color-ink-muted)] tabular-nums">
+                            – ${Number(item.max_price).toFixed(2)}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-[10px] text-[var(--color-ink-dim)] font-mono">
+                        CONFIGURE AT CHECKOUT
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Bottom Action Footer */}
@@ -591,13 +611,33 @@ export default function ProductsPage() {
                   <span className="font-mono text-[10px] text-[var(--color-terminal-green)]">
                     ● ACTIVE INVENTORY
                   </span>
-                  <Link
-                    href={`/products/${item.product_id}`}
-                    className="inline-flex items-center gap-1 font-mono text-xs text-[var(--color-atelier-brass)] hover:underline"
-                  >
-                    <span>Inspect</span>
-                    <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-                  </Link>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        window.dispatchEvent(
+                          new CustomEvent("ambient-chatbot-ask", {
+                            detail: {
+                              query: `Can you tell me more about ${item.name} and its specifications?`,
+                              autoSend: true,
+                            },
+                          })
+                        );
+                      }}
+                      className="inline-flex items-center gap-1 font-mono text-[11px] text-[var(--color-ink-muted)] hover:text-[var(--color-terminal-cyan)] transition-colors"
+                      title="Ask Ambient Assistant about this product"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      <span>Ask AI</span>
+                    </button>
+                    <Link
+                      href={`/products/${item.product_id}`}
+                      className="inline-flex items-center gap-1 font-mono text-xs text-[var(--color-atelier-brass)] hover:underline"
+                    >
+                      <span>Inspect</span>
+                      <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                    </Link>
+                  </div>
                 </div>
               </div>
             ))}
@@ -896,8 +936,8 @@ export default function ProductsPage() {
                     className="w-full flex flex-col items-center justify-center cursor-pointer text-center py-2"
                   >
                     <Upload
-                      className={`w-7 h-7 text-[var(--color-terminal-cyan)] mb-2 transition-transform ${
-                        isDragOver ? "scale-125 animate-bounce" : ""
+                      className={`w-7 h-7 text-[var(--color-terminal-cyan)] mb-2 transition-all duration-200 ${
+                        isDragOver ? "scale-110 text-[var(--color-atelier-brass)]" : ""
                       }`}
                     />
                     <span className="font-mono text-xs text-[var(--color-ink)] font-semibold mb-1">

@@ -39,6 +39,7 @@ import {
   Edit2,
   Trash2,
   SlidersHorizontal,
+  Sparkles,
 } from "lucide-react";
 
 export default function ProductDetailPage() {
@@ -815,6 +816,26 @@ export default function ProductDetailPage() {
                           </>
                         )}
                       </button>
+
+                      {/* Ask Specialist Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.dispatchEvent(
+                            new CustomEvent("ambient-chatbot-ask", {
+                              detail: {
+                                query: `Can you provide a technical breakdown and architecture specifications for ${product.name}${selectedVariant ? ` (${selectedVariant.model || ""})` : ""}?`,
+                                autoSend: true,
+                              },
+                            })
+                          );
+                        }}
+                        className="h-11 px-3.5 rounded bg-[var(--color-paper-sub)] border border-[var(--color-rule)] hover:border-[var(--color-terminal-cyan)] text-[var(--color-ink)] hover:text-[var(--color-terminal-cyan)] text-xs font-mono flex items-center justify-center gap-1.5 transition-all"
+                        title="Consult Ambient Hardware Intelligence Assistant"
+                      >
+                        <Sparkles className="w-4 h-4 text-[var(--color-terminal-cyan)]" />
+                        <span className="hidden sm:inline">Ask AI</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1042,7 +1063,7 @@ export default function ProductDetailPage() {
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. iPhone 16 Pro Max, M3 Max"
+                      placeholder="e.g. Atelier Q1 Pro, Studio Edition, Enclave Node"
                       value={variantModel}
                       onChange={(e) => setVariantModel(e.target.value)}
                       className="w-full bg-[var(--color-paper-terminal)] border border-[var(--color-rule)] rounded px-3 py-2 text-xs font-mono text-[var(--color-ink)] placeholder:text-[var(--color-ink-dim)] focus:outline-none focus:border-[var(--color-atelier-brass)] transition-colors"
@@ -1057,7 +1078,7 @@ export default function ProductDetailPage() {
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. Natural Titanium, Desert Titanium"
+                      placeholder="e.g. Satin Anodized Brass, Obsidian PVD, Raw Copper"
                       value={variantColor}
                       onChange={(e) => setVariantColor(e.target.value)}
                       className="w-full bg-[var(--color-paper-terminal)] border border-[var(--color-rule)] rounded px-3 py-2 text-xs font-mono text-[var(--color-ink)] placeholder:text-[var(--color-ink-dim)] focus:outline-none focus:border-[var(--color-atelier-brass)] transition-colors"
@@ -1069,11 +1090,11 @@ export default function ProductDetailPage() {
                   {/* Storage / Capacity */}
                   <div>
                     <label className="block text-xs font-mono text-[var(--color-ink)] mb-1">
-                      Storage / Memory Spec
+                      Switch / Hardware Spec
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. 128GB, 256GB, 1TB, 36GB RAM"
+                      placeholder="e.g. Tactile Brass 58g, Lubed Linear 45g, 64-Ch DAC"
                       value={variantStorage}
                       onChange={(e) => setVariantStorage(e.target.value)}
                       className="w-full bg-[var(--color-paper-terminal)] border border-[var(--color-rule)] rounded px-3 py-2 text-xs font-mono text-[var(--color-ink)] placeholder:text-[var(--color-ink-dim)] focus:outline-none focus:border-[var(--color-atelier-brass)] transition-colors"

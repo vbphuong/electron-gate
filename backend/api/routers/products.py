@@ -7,7 +7,7 @@ import re
 from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
 from pydantic import BaseModel, ConfigDict
 
-from api.deps import db_dependency, get_current_user, require_admin_or_staff, supabase_dependency
+from api.deps import db_dependency, get_current_user, get_optional_user, require_admin_or_staff, supabase_dependency
 from api.models import Product, Category, ProductImage, product_category
 
 router = APIRouter(prefix="/products", tags=["products"])
@@ -63,6 +63,8 @@ class ProductListItem(BaseModel):
     image_url: Optional[str] = None
     categories: list[CategoryBrief] = []
     variant_count: int = 0
+    min_price: Optional[Decimal] = None
+    max_price: Optional[Decimal] = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -84,6 +86,9 @@ class ProductUpdate(BaseModel):
 
 
 def product_to_list_item(product: Product) -> ProductListItem:
+    prices = [v.price for v in product.variants if v.price is not None]
+    min_p = min(prices) if prices else None
+    max_p = max(prices) if prices else None
     return ProductListItem(
         product_id=product.product_id,
         name=product.name,
@@ -91,6 +96,8 @@ def product_to_list_item(product: Product) -> ProductListItem:
         image_url=product.image_url,
         categories=[CategoryBrief.model_validate(c) for c in product.categories],
         variant_count=len(product.variants),
+        min_price=min_p,
+        max_price=max_p,
     )
 
 
@@ -100,7 +107,7 @@ def product_to_list_item(product: Product) -> ProductListItem:
 @router.get("", response_model=list[ProductListItem])
 def list_products(
     db: db_dependency,
-    _: dict = Depends(get_current_user),
+    _: Optional[dict] = Depends(get_optional_user),
     category_id: Optional[UUID] = Query(None),
     search: Optional[str] = Query(None),
 ):
@@ -122,7 +129,7 @@ def list_products(
 def get_product(
     product_id: UUID,
     db: db_dependency,
-    _: dict = Depends(get_current_user),
+    _: Optional[dict] = Depends(get_optional_user),
 ):
     product = db.query(Product).filter(Product.product_id == product_id).first()
     if not product:

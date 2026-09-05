@@ -63,6 +63,20 @@ export default function CheckoutPage() {
   const [isCreatingAddress, setIsCreatingAddress] = useState<boolean>(false);
   const [addressFormError, setAddressFormError] = useState<string | null>(null);
   const [isLoadingLocations, setIsLoadingLocations] = useState<boolean>(false);
+  const [ttlSeconds, setTtlSeconds] = useState<number>(900);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTtlSeconds((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatTTL = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
 
   // Load Cart & Addresses
   const loadCheckoutData = useCallback(async () => {
@@ -320,8 +334,29 @@ export default function CheckoutPage() {
             </Link>
           </div>
         ) : (
-          /* Main Checkout Grid */
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
+          <>
+            {/* Stock Reservation TTL Banner */}
+            <div className="mb-8 p-3.5 rounded-lg border border-[var(--color-rule)] bg-[var(--color-paper-sub)] flex flex-col sm:flex-row sm:items-center justify-between gap-2 font-mono text-xs">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2 h-2 rounded-full bg-[var(--color-terminal-green)] animate-pulse shrink-0" />
+                <span className="text-[var(--color-ink)] font-medium">
+                  Inventory Enclave Reserved
+                </span>
+                <span className="text-[var(--color-ink-dim)] hidden sm:inline">|</span>
+                <span className="text-[var(--color-ink-muted)] text-[11px]">
+                  Hardware units locked in PostgreSQL warehouse ledger
+                </span>
+              </div>
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                <span className="text-[10px] text-[var(--color-ink-dim)] uppercase">TTL Remaining:</span>
+                <span className="text-[var(--color-atelier-brass)] font-bold tabular-nums">
+                  {formatTTL(ttlSeconds)}
+                </span>
+              </div>
+            </div>
+
+            {/* Main Checkout Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
             {/* Left Column: Shipping Address & Hardware Verification */}
             <div className="lg:col-span-8 space-y-8">
               {/* STEP 1: Shipping Address Selection */}
@@ -363,7 +398,7 @@ export default function CheckoutPage() {
                           onClick={() => setSelectedAddressId(addr.address_id)}
                           className={`p-4 rounded-lg border cursor-pointer transition-all font-mono text-xs flex flex-col justify-between relative ${
                             isSelected
-                              ? "border-[var(--color-atelier-brass)] bg-[var(--color-paper-terminal)] ring-1 ring-[var(--color-atelier-brass)] shadow-sm"
+                              ? "border-[var(--color-atelier-brass)] bg-[var(--color-paper-card)] ring-2 ring-[var(--color-atelier-brass)]/30 shadow-md"
                               : "border-[var(--color-rule)] bg-[var(--color-paper-sub)] hover:border-[var(--color-rule-active)] opacity-85 hover:opacity-100"
                           }`}
                         >
@@ -393,7 +428,7 @@ export default function CheckoutPage() {
                               {isSelected ? "Selected Destination" : "Click to select"}
                             </span>
                             {isSelected && (
-                              <div className="w-4 h-4 rounded-full bg-[var(--color-atelier-brass)] text-[var(--color-paper)] flex items-center justify-center">
+                              <div className="w-4 h-4 rounded-full bg-[var(--color-atelier-brass)] text-white flex items-center justify-center">
                                 <Check className="w-3 h-3" />
                               </div>
                             )}
@@ -525,14 +560,14 @@ export default function CheckoutPage() {
                         onClick={() => setPaymentMethod(m.id)}
                         className={`p-3.5 rounded-lg border cursor-pointer transition-all ${
                           isSelected
-                            ? "border-[var(--color-atelier-brass)] bg-[var(--color-paper-sub)] shadow-sm"
-                            : "border-[var(--color-rule)] bg-[var(--color-paper-terminal)] hover:border-[var(--color-rule-active)]"
+                            ? "border-[var(--color-atelier-brass)] bg-[var(--color-paper-card)] ring-2 ring-[var(--color-atelier-brass)]/30 shadow-sm"
+                            : "border-[var(--color-rule)] bg-[var(--color-paper-sub)] hover:border-[var(--color-rule-active)]"
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-bold text-[var(--color-ink)]">{m.label}</span>
                           {isSelected && (
-                            <div className="w-3.5 h-3.5 rounded-full bg-[var(--color-atelier-brass)] text-[var(--color-paper)] flex items-center justify-center">
+                            <div className="w-3.5 h-3.5 rounded-full bg-[var(--color-atelier-brass)] text-white flex items-center justify-center">
                               <Check className="w-2.5 h-2.5" />
                             </div>
                           )}
@@ -554,7 +589,7 @@ export default function CheckoutPage() {
                       Order Summary
                     </h3>
                     <span className="font-mono text-[10px] text-[var(--color-terminal-cyan)] uppercase tracking-wider">
-                      FLOW 4.1 CHECKOUT
+                      TRANSACTION SETTLEMENT
                     </span>
                   </div>
 
@@ -643,7 +678,8 @@ export default function CheckoutPage() {
               </div>
             </div>
           </div>
-        )}
+        </>
+      )}
       </main>
 
       {/* Add New Address Modal */}
@@ -726,7 +762,7 @@ export default function CheckoutPage() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. 1 Infinite Loop, Building 4"
+                  placeholder="e.g. 42 Atelier Row, Enclave 4"
                   value={addressLine}
                   onChange={(e) => setAddressLine(e.target.value)}
                   className="w-full bg-[var(--color-paper-terminal)] border border-[var(--color-rule)] rounded px-3 py-2 text-xs font-mono text-[var(--color-ink)] placeholder:text-[var(--color-ink-dim)] focus:outline-none focus:border-[var(--color-atelier-brass)] transition-colors"

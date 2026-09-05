@@ -265,6 +265,8 @@ export interface ProductListItem {
   image_url?: string | null;
   categories: CategoryBrief[];
   variant_count: number;
+  min_price?: number | string | null;
+  max_price?: number | string | null;
 }
 
 export interface VariantBrief {
@@ -1918,11 +1920,6 @@ export async function apiGetInventoryStock(
   );
 }
 
-export async function apiGetMe(token: string): Promise<UserInfo> {
-  const res = await fetch(`${BACKEND_URL}/auth/me`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  
 export async function apiCreateInventoryStock(
   payload: InventoryStockCreatePayload,
   token: string
