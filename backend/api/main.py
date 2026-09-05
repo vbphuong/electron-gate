@@ -25,6 +25,7 @@ from api.routers import (
     variant_specs,
     ingestion,
     rag,
+    visual_search,
 )
 from api.database import Base, engine, SessionLocal
 from api.models import Role
@@ -54,6 +55,7 @@ app.include_router(locations.router)
 app.include_router(addresses.router)
 app.include_router(ingestion.router)
 app.include_router(rag.router)
+app.include_router(visual_search.router)
 app.include_router(categories.router)
 app.include_router(products.router)
 app.include_router(product_images.router)

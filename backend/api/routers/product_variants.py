@@ -1,12 +1,28 @@
 from decimal import Decimal
 from typing import Optional
 from uuid import UUID
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict
 
 from api.deps import db_dependency, get_current_user, require_admin_or_staff
 from api.models import Product, ProductVariant, ProductImage
+from rag_engine.visual_search.celery_tasks import embed_product_image_task
+
+logger = logging.getLogger(__name__)
+
+
+def _dispatch_embed(image_id: str, image_url: str) -> None:
+    """Fire-and-forget: send embed task to Celery. Logs a warning if Redis is unavailable."""
+    try:
+        embed_product_image_task.delay(image_id, image_url)
+    except Exception as exc:
+        logger.warning(
+            f"Could not dispatch embed task for variant image {image_id} "
+            f"(Redis may be offline): {exc}"
+        )
+
 
 router = APIRouter(
     prefix="/products/{product_id}/variants",
@@ -123,18 +139,24 @@ def create_variant(
     db.add(variant)
     db.flush()
 
+    new_img_to_embed = None
     if variant.image_url:
-        db.add(
-            ProductImage(
-                product_id=product_id,
-                variant_id=variant.variant_id,
-                image_url=variant.image_url,
-                is_primary=False,
-            )
+        img = ProductImage(
+            product_id=product_id,
+            variant_id=variant.variant_id,
+            image_url=variant.image_url,
+            is_primary=False,
         )
+        db.add(img)
+        db.flush()
+        new_img_to_embed = img
 
     db.commit()
     db.refresh(variant)
+
+    if new_img_to_embed is not None:
+        _dispatch_embed(str(new_img_to_embed.image_id), new_img_to_embed.image_url)
+
     return VariantRead.model_validate(variant)
 
 
@@ -161,6 +183,8 @@ def update_variant(
             detail="Variant not found",
         )
 
+    new_img_to_embed = None
+
     if payload.model is not None:
         variant.model = payload.model
     if payload.color is not None:
@@ -184,18 +208,25 @@ def update_variant(
             )
             if existing_img:
                 existing_img.variant_id = variant.variant_id
+                if existing_img.embedding is None:
+                    new_img_to_embed = existing_img
             else:
-                db.add(
-                    ProductImage(
-                        product_id=product_id,
-                        variant_id=variant.variant_id,
-                        image_url=payload.image_url,
-                        is_primary=False,
-                    )
+                new_img = ProductImage(
+                    product_id=product_id,
+                    variant_id=variant.variant_id,
+                    image_url=payload.image_url,
+                    is_primary=False,
                 )
+                db.add(new_img)
+                db.flush()
+                new_img_to_embed = new_img
 
     db.commit()
     db.refresh(variant)
+
+    if new_img_to_embed is not None:
+        _dispatch_embed(str(new_img_to_embed.image_id), new_img_to_embed.image_url)
+
     return VariantRead.model_validate(variant)
 
 

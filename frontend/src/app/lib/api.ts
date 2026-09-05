@@ -455,6 +455,40 @@ export async function apiSearchProductsByImage(
   );
 }
 
+/**
+ * Send a raw image file to the backend for server-side YOLO detection +
+ * SigLIP encoding + pgvector search.
+ *
+ * This replaces the old client-side fake-vector approach.
+ */
+export async function apiVisualSearchByFile(
+  file: File,
+  token?: string | null,
+  options?: { top_k?: number; min_similarity?: number; category_id?: string }
+): Promise<VisualSearchResultItem[]> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("top_k", String(options?.top_k ?? 8));
+  formData.append("min_similarity", String(options?.min_similarity ?? 0.0));
+  if (options?.category_id) {
+    formData.append("category_id", options.category_id);
+  }
+
+  const headers: HeadersInit = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  // NOTE: Do NOT set Content-Type — browser sets it automatically with boundary for multipart/form-data
+
+  return fetchJson<VisualSearchResultItem[]>(
+    "/visual-search/encode-and-search",
+    {
+      method: "POST",
+      headers,
+      body: formData,
+    },
+    "Visual search failed"
+  );
+}
+
 export async function apiGetMyCart(token: string): Promise<CartRead> {
   return fetchJson<CartRead>(
     "/carts/me",

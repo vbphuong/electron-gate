@@ -4,7 +4,10 @@ celery_app = Celery(
     "electron-gate-worker",
     broker="redis://localhost:6379/0",
     backend="redis://localhost:6379/1",
-    include=["rag_engine.ingestion.celery_tasks"],
+    include=[
+        "rag_engine.ingestion.celery_tasks",
+        "rag_engine.visual_search.celery_tasks",
+    ],
 )
 
 celery_app.conf.update(
@@ -18,5 +21,6 @@ celery_app.conf.update(
     task_default_queue="default",
     task_routes={
         "rag_engine.ingestion.celery_tasks.*": {"queue": "ingestion_queue"},
+        "rag_engine.visual_search.celery_tasks.*": {"queue": "visual_search_queue"},
     },
 )

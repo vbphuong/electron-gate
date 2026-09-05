@@ -8,6 +8,7 @@ import {
   apiGetCategories,
   apiGetMyCart,
   apiSearchProductsByImage,
+  apiVisualSearchByFile,
   apiCreateProduct,
   apiUploadProductImage,
   type ProductListItem,
@@ -255,23 +256,8 @@ export default function ProductsPage() {
     reader.readAsDataURL(file);
 
     try {
-      // 4. Compute 512-dim visual representation vector from file bytes
-      const arrayBuffer = await file.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuffer);
-      
-      const vector: number[] = new Array(512).fill(0);
-      const step = Math.max(1, Math.floor(bytes.length / 512));
-      let sumSq = 0;
-      for (let i = 0; i < 512; i++) {
-        const byteVal = bytes[(i * step) % bytes.length] || 0;
-        const val = (byteVal / 255) * 2 - 1;
-        vector[i] = Number(val.toFixed(4));
-        sumSq += val * val;
-      }
-      const norm = Math.sqrt(sumSq) || 1;
-      const normalizedVector = vector.map((v) => Number((v / norm).toFixed(6)));
-
-      const results = await apiSearchProductsByImage(normalizedVector, token, {
+      // 4. Send file to backend — server runs YOLO detect → SigLIP encode → pgvector search
+      const results = await apiVisualSearchByFile(file, token, {
         top_k: 8,
         min_similarity: 0.0,
         category_id: selectedCategory || undefined,
@@ -283,6 +269,9 @@ export default function ProductsPage() {
       if (err instanceof Error) {
         if (err.message.includes("401") || err.message.includes("Unauthorized")) {
           errorMessage = "Authentication required. Please sign in to query the visual vector space.";
+        } else if (err.message.includes("422")) {
+          // Unprocessable entity — YOLO could not detect an object
+          errorMessage = "Không nhận diện được sản phẩm trong ảnh. Hãy thử ảnh rõ hơn hoặc chụp gần hơn.";
         } else if (err.message.includes("Failed to fetch") || (typeof navigator !== "undefined" && !navigator.onLine)) {
           errorMessage = "Unable to connect to the visual vector index. Please check your network connection.";
         } else {

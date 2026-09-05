@@ -1,6 +1,7 @@
 from decimal import Decimal
 from typing import Optional
 from uuid import UUID, uuid4
+import logging
 import pathlib
 import re
 
@@ -9,8 +10,22 @@ from pydantic import BaseModel, ConfigDict
 
 from api.deps import db_dependency, get_current_user, get_optional_user, require_admin_or_staff, supabase_dependency
 from api.models import Product, Category, ProductImage, product_category
+from rag_engine.visual_search.celery_tasks import embed_product_image_task
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/products", tags=["products"])
+
+
+def _dispatch_embed(image_id: str, image_url: str) -> None:
+    """Fire-and-forget: send embed task to Celery. Logs a warning if Redis is unavailable."""
+    try:
+        embed_product_image_task.delay(image_id, image_url)
+    except Exception as exc:
+        logger.warning(
+            f"Could not dispatch embed task for image {image_id} "
+            f"(Redis may be offline): {exc}"
+        )
 
 
 # ── Schemas ──────────────────────────────────────────────────────────────────
@@ -223,16 +238,22 @@ def create_product(
     db.flush()
 
     if body.image_url:
-        db.add(
-            ProductImage(
-                product_id=product.product_id,
-                image_url=body.image_url,
-                is_primary=True,
-            )
+        primary_image = ProductImage(
+            product_id=product.product_id,
+            image_url=body.image_url,
+            is_primary=True,
         )
+        db.add(primary_image)
+        db.flush()  # Flush to get image_id assigned
 
     db.commit()
     db.refresh(product)
+
+    # Trigger async SigLIP embedding for the primary image (runs in Celery background)
+    if body.image_url and product.images:
+        primary_img = next((img for img in product.images if img.is_primary), product.images[0])
+        _dispatch_embed(str(primary_img.image_id), body.image_url)
+
     return ProductRead.model_validate(product)
 
 
@@ -248,6 +269,8 @@ def update_product(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Product not found"
         )
+
+    new_image_to_embed = None  # Track image that needs embedding (may be set in if block below)
 
     if body.name is not None:
         product.name = body.name
@@ -266,14 +289,18 @@ def update_product(
             )
             if existing_img:
                 existing_img.is_primary = True
+                # Only re-embed if embedding is missing
+                if existing_img.embedding is None:
+                    new_image_to_embed = existing_img
             else:
-                db.add(
-                    ProductImage(
-                        product_id=product_id,
-                        image_url=body.image_url,
-                        is_primary=True,
-                    )
+                new_img = ProductImage(
+                    product_id=product_id,
+                    image_url=body.image_url,
+                    is_primary=True,
                 )
+                db.add(new_img)
+                db.flush()  # Get image_id
+                new_image_to_embed = new_img
 
     if body.category_ids is not None:
         categories_list = (
@@ -290,6 +317,11 @@ def update_product(
 
     db.commit()
     db.refresh(product)
+
+    # Trigger async embedding if a new image was added or an un-embedded image was set as primary
+    if new_image_to_embed is not None:
+        _dispatch_embed(str(new_image_to_embed.image_id), new_image_to_embed.image_url)
+
     return ProductRead.model_validate(product)
 
 
