@@ -17,6 +17,7 @@ from rag_engine.embeddings.vector_store import get_vector_store, SupabaseKeyword
 from rag_engine.retrieval_and_answer.retrieve_chunks import retrieve_chunks, retrieve_chunks_multi
 from rag_engine.retrieval_and_answer.reciprocal_rank_fusion import reciprocal_rank_fusion
 from rag_engine.retrieval_and_answer.generate_answer import generate_final_answer
+from rag_engine.agent.agent_runner import AgentContext, AgentResponse, run_agent
 
 router = APIRouter(
     prefix="/rag",
@@ -288,4 +289,110 @@ async def search_chunks(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"RAG search failed: {exc}",
+        )
+
+
+# =============================================================================
+# AGENT ENDPOINT
+# =============================================================================
+
+class ConversationTurn(BaseModel):
+    role: str = Field(..., description="'user' or 'assistant'")
+    content: str
+
+
+class AgentQueryRequest(BaseModel):
+    query: str = Field(..., min_length=1, description="The user's question or request")
+    document_ids: Optional[List[str]] = Field(
+        default=None,
+        description="Optional: restrict knowledge-base search to these document UUIDs",
+    )
+    conversation_history: Optional[List[ConversationTurn]] = Field(
+        default=None,
+        description="Recent conversation turns for multi-turn context (max last 6 turns used)",
+    )
+
+
+class AgentQueryResponse(BaseModel):
+    query: str
+    answer: str
+    tools_used: List[str] = Field(default_factory=list)
+    reasoning: Optional[str] = Field(
+        default=None,
+        description="Self-grading trace (tool selection rationale)",
+    )
+    sources: List[SourceChunk] = Field(
+        default_factory=list,
+        description="Source chunks from knowledge-base documents, if any were used",
+    )
+
+
+@router.post("/agent", response_model=AgentQueryResponse, status_code=status.HTTP_200_OK)
+async def agent_query(
+    request: AgentQueryRequest,
+    current_user: user_dependency,
+    db: db_dependency,
+    supabase_client: supabase_dependency,
+    llm: llm_dependency,
+    embeddings: embedding_dependency,
+):
+    """
+    AI Agent endpoint — combines live database queries with document RAG.
+
+    The agent autonomously:
+    1. Selects the appropriate tool(s) based on the user's question.
+    2. Queries live DB data (products, inventory, orders) and/or uploaded documents.
+    3. Self-grades its findings and optionally retrieves more data.
+    4. Synthesizes a clear, grounded final answer.
+
+    Role-based access:
+    - All roles can search products, check stock, get recommendations, view own orders,
+      and search knowledge-base documents.
+    - Staff and Admin additionally see exact stock quantities and warehouse locations,
+      and can query low-stock reports.
+    """
+    try:
+        history = (
+            [{"role": t.role, "content": t.content} for t in request.conversation_history]
+            if request.conversation_history
+            else None
+        )
+
+        ctx = AgentContext(
+            query=request.query,
+            user_id=str(current_user["id"]),
+            user_role=current_user.get("role", "User"),
+            db=db,
+            llm=llm,
+            embeddings=embeddings,
+            supabase_client=supabase_client,
+            document_ids=request.document_ids,
+            conversation_history=history,
+        )
+
+        result: AgentResponse = await asyncio.to_thread(run_agent, ctx)
+
+        rag_sources = [
+            SourceChunk(
+                content=s.get("content", ""),
+                score=s.get("score"),
+                metadata=s.get("metadata", {}),
+            )
+            for s in result.sources
+        ]
+
+        return AgentQueryResponse(
+            query=result.query,
+            answer=result.answer,
+            tools_used=result.tools_used,
+            reasoning=result.reasoning or None,
+            sources=rag_sources,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Agent query failed: {exc}",
         )
